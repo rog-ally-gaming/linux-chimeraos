@@ -11,6 +11,8 @@ url="https://github.com/ChimeraOS/linux-chimeraos"
 arch=(x86_64)
 license=(GPL2)
 makedepends=(
+  llvm
+  clang
   bc
   cpio
   gettext
@@ -55,6 +57,9 @@ source=(
 
   #HDR patches
   0001-HDR.patch
+
+  # More CPU architectures
+  more-uarches-for-kernel-5.17+.patch  
 )
 
 validpgpkeys=(
@@ -76,7 +81,9 @@ b2sums=('d38cae9706127fa28cc55b50ceeba7601de3d1db648b934b9d33e0b439324790074b755
         'd61221e64b7b226b265bde2b75c8938db8c742786ba3e07964804f54aa9a7453de4ade56a139ac7cd059bfd711c610a45f41981743cb17156c1e7b87a29b4d6d'
         'd575cd8fa9763eae4d69e9fc5260289ae51f2e9a87dbcde08f89cc4db56742e52ecc9dd394139254dc37defcf4aa249fd92f8453147df7d294527035722c7843'
         '41162c86f54fcdf7dfbe575e23f8bde4efa8886b5db311945e03bccb353286e70f6e4e83aadc5e81102cfcb8cf1ddab31cbbe016df4237abc07e7a69bc8e5c52'
-        'e82a079ddac373cefb7901f7a43b896a648d3f00535ce021a8ea722f0c84394e31871ec4fd7a8be82f521c9c8ef9836f82a652388af8b7ea46932515c538ff4d')
+        'e82a079ddac373cefb7901f7a43b896a648d3f00535ce021a8ea722f0c84394e31871ec4fd7a8be82f521c9c8ef9836f82a652388af8b7ea46932515c538ff4d'
+        '508ff463d936e07e0c3ac2017da12bda52d3db5d98d45fe908f35c4d9fadb253cc9d5c17b8915ec600b5024fcecc2746a04d32096e7ebf691438d4ab8bd067a8'
+)
 
 export KBUILD_BUILD_HOST=archlinux
 export KBUILD_BUILD_USER=$pkgbase
@@ -91,13 +98,16 @@ prepare() {
   mv "linux-${_srctag}" $_srcname
   cd $_srcname
 
+  # Apply Xanmod patch
+  #patch -Np1 -i ../patch-${_srctag}-xanmod${xanmod}${_revision}
+
   echo "Setting version..."
   echo "${pkgbase#linux}" > localversion.10-pkgname
   echo "-$pkgrel" > localversion.20-pkgrel
   sed -i "s/EXTRAVERSION =/EXTRAVERSION = -${_srcpatch}/g" Makefile
-  make defconfig
-  make -s kernelrelease > version
-  make mrproper
+  make LLVM=1 defconfig
+  make LLVM=1 -s kernelrelease > version
+  make LLVM=1 mrproper
 
   local src
   for src in "${source[@]}"; do
@@ -110,7 +120,7 @@ prepare() {
 
   echo "Setting config..."
   cp ../config .config
-  _make olddefconfig
+  _make LLVM=1 olddefconfig
   diff -u ../config .config || :
 
   echo "Prepared $pkgbase version $(<version)"
@@ -118,7 +128,7 @@ prepare() {
 
 build() {
   cd $_srcname
-  _make all
+  _make LLVM=1 all
 }
 
 _package() {
@@ -179,7 +189,7 @@ _package-headers() {
   install -Dt "$builddir/tools/objtool" tools/objtool/objtool
 
   # required when DEBUG_INFO_BTF_MODULES is enabled
-  install -Dt "$builddir/tools/bpf/resolve_btfids" tools/bpf/resolve_btfids/resolve_btfids
+  #install -Dt "$builddir/tools/bpf/resolve_btfids" tools/bpf/resolve_btfids/resolve_btfids
 
   echo "Installing headers..."
   cp -t "$builddir" -a include
