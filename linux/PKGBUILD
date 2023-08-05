@@ -247,7 +247,7 @@ build() {
   _make all
 
   cd tools/bpf/resolve_btfids
-  _make all
+  make all
 }
 
 _package() {
