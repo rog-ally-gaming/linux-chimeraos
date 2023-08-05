@@ -245,6 +245,9 @@ prepare() {
 build() {
   cd $_srcname
   _make all
+
+  cd tools/bpf/resolve_btfids
+  _make all
 }
 
 _package() {
