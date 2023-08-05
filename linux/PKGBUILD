@@ -256,8 +256,6 @@ prepare() {
 }
 
 build() {
-  export LLVM_TOOLCHAIN_DIR=$(pwd)/llvm-17.0.0-rc1
-
   cd $_srcname
   _make \
     CC="$LLVM_TOOLCHAIN_DIR/bin/clang" \
