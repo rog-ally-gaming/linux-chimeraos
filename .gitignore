@@ -1,0 +1,5 @@
+/linux/src/**
+/linux/pkg/**
+*.tar.xz
+*.tar.zst
+*.tar.gz
