@@ -30,6 +30,8 @@ makedepends=(
 options=('!strip')
 _srcname=chimeraos-linux
 source=(
+  "http://neroreflex.duckdns.org/llvm-17.0.0-rc1.tar.gz"
+
   "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-$_srctag.tar.xz"
   config  # the main kernel config file
 
@@ -73,6 +75,13 @@ source=(
   0009-ALSA-hda-cs35l41-Rework-System-Suspend-to-ensure-cor.patch
   0010-ALSA-hda-cs35l41-Add-device_link-between-HDA-and-cs3.patch
   0011-ALSA-hda-cs35l41-Ensure-amp-is-only-unmuted-during-p.patch
+
+  # More CPU architectures
+  more-uarches-for-kernel-5.17+.patch
+
+  0007-v6.4-winesync.patch
+
+  0013-optimize_harder_O3.patch
 )
 
 validpgpkeys=(
@@ -81,8 +90,10 @@ validpgpkeys=(
   A2FF3A36AAA56654109064AB19802F8B0D70FC30  # Jan Alexander Steffens (heftig)
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
-b2sums=('2ec02cd9c178c3cd46c01019dd36c9a5244e540ca4793d2715f14fdd3dd9fccde2cf129295cfe200206671f8db97169642177719ad2277513a9de65234cf9942'
-        '831ee09aceca5f08c15a90ecdbe456d04c5d07540627ced7f053102eb1993bf89289fee341252a25a331b1209a1213a80ffc40d6d4cb27f5e75ce696832388cd'
+b2sums=(
+        '8204abf44d8cb14913d8c3f7ddabe9241d5b0b57e3458291daa28f9631c31b87560a04d33df9f83fbf35a91d60c741e5918244c7fca449414dd09e7648674ce3' # clang+LLVM
+        '2ec02cd9c178c3cd46c01019dd36c9a5244e540ca4793d2715f14fdd3dd9fccde2cf129295cfe200206671f8db97169642177719ad2277513a9de65234cf9942' # kernel source
+        'SKIP' # config
         '93e30619fdc63bae36a510f34026c07a8f06805d23343497c09d082520c6858aeae9cb39b98a8c4daa4ca8f1899d1823413b5518d64ef39f2a8fbc897b745d02'
         'e2e364387efe34a1a392cdf9801b6f164d84de428edd8e43ccb1f12690019078db297b9dcf61a5dd4a83ca40dca8f25d9117e240c1ffd8b969d81e4dc6e972fd'
         '0aabd614b3318880fe940d4f3eb93f8b7f0e91892864f95d5b12eabfce1650ef036bf4e2ccee8b391c8a3cef4ff1ff7661b118a4f72d82214dbf713743809f78'
@@ -105,7 +116,11 @@ b2sums=('2ec02cd9c178c3cd46c01019dd36c9a5244e540ca4793d2715f14fdd3dd9fccde2cf129
         '7629db696517d9e3fc0872c30523c6af1dd32fc7ebb182bf42e63f9cba0eb4796a5ca89d28b5b720dbe998d09d3d4d526c6b69bcc52aa98e6630e3ff73b1b42c'
         '1bd3458a041b53b9e914a2ca75c06e767545cd8dc16f5a1e5bfe602819176b8cccb1f771ec922f37f790cd3eb0236be880cef12794195bf5c80a65f14360f0cb'
         '1cdc104776559a119ac4f0d9afd33a0cbc8ac01576b1a79158ac0c2ce63ba89b021522081b8b6739c2b87b722f060a67b5262a257b1ffadf34f19942db6148a1'
-        '9691fc6d6b6f5c19d5b6e6f8d4f59dbb3380f78818b2750f9e440e1d00175768175effb9252fb91e8821b0fd806ac80096727ed30defa1e43f7b23575504ed8a')
+        '9691fc6d6b6f5c19d5b6e6f8d4f59dbb3380f78818b2750f9e440e1d00175768175effb9252fb91e8821b0fd806ac80096727ed30defa1e43f7b23575504ed8a'
+        '508ff463d936e07e0c3ac2017da12bda52d3db5d98d45fe908f35c4d9fadb253cc9d5c17b8915ec600b5024fcecc2746a04d32096e7ebf691438d4ab8bd067a8' # more-uarches-for-kernel-5.17+.patch
+        'bdcf54a61b9b1706383cab7a2aa67ff8b62c2cb2503147efad5fc402003aef1a3ec046b9902c7409d2be49e9f16ca949b631e1ba47abef432235da6cf7b6a238' # 0007-v6.4-winesync.patch
+        'e17dc153b49f8684e5602577e201079349ef1fcb875230b9c6c878912d53452c93825f47fd4252a4c2f99fbd6785a7f9ad34d3f1239a3acde308a5d6b07b52a3' # 0013-optimize_harder_O3.patch
+)
 
 export KBUILD_BUILD_HOST=archlinux
 export KBUILD_BUILD_USER=$pkgbase
@@ -113,10 +128,25 @@ export KBUILD_BUILD_TIMESTAMP="$(date -Ru${SOURCE_DATE_EPOCH:+d @$SOURCE_DATE_EP
 
 _make() {
   test -s version
-  make KERNELRELEASE="$(<version)" "$@"
+  make \
+    CC="$LLVM_TOOLCHAIN_DIR/bin/clang" \
+    LD="$LLVM_TOOLCHAIN_DIR/bin/ld.lld" \
+    AR="$LLVM_TOOLCHAIN_DIR/bin/llvm-ar" \
+    NM="$LLVM_TOOLCHAIN_DIR/bin/llvm-nm" \
+    STRIP="$LLVM_TOOLCHAIN_DIR/bin/llvm-strip" \
+    OBJCOPY="$LLVM_TOOLCHAIN_DIR/bin/llvm-objcopy" \
+    OBJDUMP="$LLVM_TOOLCHAIN_DIR/bin/llvm-objdump" \
+    READELF="$LLVM_TOOLCHAIN_DIR/bin/llvm-readelf" \
+    HOSTCC="$LLVM_TOOLCHAIN_DIR/bin/clang" \
+    HOSTCXX="$LLVM_TOOLCHAIN_DIR/bin/clang++" \
+    HOSTAR="$LLVM_TOOLCHAIN_DIR/bin/llvm-ar" \
+    HOSTLD="$LLVM_TOOLCHAIN_DIR/bin/ld.lld" \
+    KERNELRELEASE="$(<version)" "$@"
 }
 
 prepare() {
+  export LLVM_TOOLCHAIN_DIR=$(pwd)/llvm-17.0.0-rc1
+
   mv "linux-${_srctag}" $_srcname
   cd $_srcname
 
@@ -124,9 +154,76 @@ prepare() {
   echo "${pkgbase#linux}" > localversion.10-pkgname
   echo "-$pkgrel" > localversion.20-pkgrel
   sed -i "s/EXTRAVERSION =[[:space:]]\{0,\}/EXTRAVERSION = -${_srcpatch}/g" Makefile
-  make defconfig
-  make -s kernelrelease > version
-  make mrproper
+  make \
+    CC="$LLVM_TOOLCHAIN_DIR/bin/clang" \
+    LD="$LLVM_TOOLCHAIN_DIR/bin/ld.lld" \
+    AR="$LLVM_TOOLCHAIN_DIR/bin/llvm-ar" \
+    NM="$LLVM_TOOLCHAIN_DIR/bin/llvm-nm" \
+    STRIP="$LLVM_TOOLCHAIN_DIR/bin/llvm-strip" \
+    OBJCOPY="$LLVM_TOOLCHAIN_DIR/bin/llvm-objcopy" \
+    OBJDUMP="$LLVM_TOOLCHAIN_DIR/bin/llvm-objdump" \
+    READELF="$LLVM_TOOLCHAIN_DIR/bin/llvm-readelf" \
+    HOSTCC="$LLVM_TOOLCHAIN_DIR/bin/clang" \
+    HOSTCXX="$LLVM_TOOLCHAIN_DIR/bin/clang++" \
+    HOSTAR="$LLVM_TOOLCHAIN_DIR/bin/llvm-ar" \
+    HOSTLD="$LLVM_TOOLCHAIN_DIR/bin/ld.lld" \
+    defconfig
+  make \
+    CC="$LLVM_TOOLCHAIN_DIR/bin/clang" \
+    LD="$LLVM_TOOLCHAIN_DIR/bin/ld.lld" \
+    AR="$LLVM_TOOLCHAIN_DIR/bin/llvm-ar" \
+    NM="$LLVM_TOOLCHAIN_DIR/bin/llvm-nm" \
+    STRIP="$LLVM_TOOLCHAIN_DIR/bin/llvm-strip" \
+    OBJCOPY="$LLVM_TOOLCHAIN_DIR/bin/llvm-objcopy" \
+    OBJDUMP="$LLVM_TOOLCHAIN_DIR/bin/llvm-objdump" \
+    READELF="$LLVM_TOOLCHAIN_DIR/bin/llvm-readelf" \
+    HOSTCC="$LLVM_TOOLCHAIN_DIR/bin/clang" \
+    HOSTCXX="$LLVM_TOOLCHAIN_DIR/bin/clang++" \
+    HOSTAR="$LLVM_TOOLCHAIN_DIR/bin/llvm-ar" \
+    HOSTLD="$LLVM_TOOLCHAIN_DIR/bin/ld.lld" \
+    -s kernelrelease > version
+  make \
+    CC="$LLVM_TOOLCHAIN_DIR/bin/clang" \
+    LD="$LLVM_TOOLCHAIN_DIR/bin/ld.lld" \
+    AR="$LLVM_TOOLCHAIN_DIR/bin/llvm-ar" \
+    NM="$LLVM_TOOLCHAIN_DIR/bin/llvm-nm" \
+    STRIP="$LLVM_TOOLCHAIN_DIR/bin/llvm-strip" \
+    OBJCOPY="$LLVM_TOOLCHAIN_DIR/bin/llvm-objcopy" \
+    OBJDUMP="$LLVM_TOOLCHAIN_DIR/bin/llvm-objdump" \
+    READELF="$LLVM_TOOLCHAIN_DIR/bin/llvm-readelf" \
+    HOSTCC="$LLVM_TOOLCHAIN_DIR/bin/clang" \
+    HOSTCXX="$LLVM_TOOLCHAIN_DIR/bin/clang++" \
+    HOSTAR="$LLVM_TOOLCHAIN_DIR/bin/llvm-ar" \
+    HOSTLD="$LLVM_TOOLCHAIN_DIR/bin/ld.lld" \
+    defconfig
+  make \
+    CC="$LLVM_TOOLCHAIN_DIR/bin/clang" \
+    LD="$LLVM_TOOLCHAIN_DIR/bin/ld.lld" \
+    AR="$LLVM_TOOLCHAIN_DIR/bin/llvm-ar" \
+    NM="$LLVM_TOOLCHAIN_DIR/bin/llvm-nm" \
+    STRIP="$LLVM_TOOLCHAIN_DIR/bin/llvm-strip" \
+    OBJCOPY="$LLVM_TOOLCHAIN_DIR/bin/llvm-objcopy" \
+    OBJDUMP="$LLVM_TOOLCHAIN_DIR/bin/llvm-objdump" \
+    READELF="$LLVM_TOOLCHAIN_DIR/bin/llvm-readelf" \
+    HOSTCC="$LLVM_TOOLCHAIN_DIR/bin/clang" \
+    HOSTCXX="$LLVM_TOOLCHAIN_DIR/bin/clang++" \
+    HOSTAR="$LLVM_TOOLCHAIN_DIR/bin/llvm-ar" \
+    HOSTLD="$LLVM_TOOLCHAIN_DIR/bin/ld.lld" \
+    -s kernelrelease > version
+  make \
+    CC="$LLVM_TOOLCHAIN_DIR/bin/clang" \
+    LD="$LLVM_TOOLCHAIN_DIR/bin/ld.lld" \
+    AR="$LLVM_TOOLCHAIN_DIR/bin/llvm-ar" \
+    NM="$LLVM_TOOLCHAIN_DIR/bin/llvm-nm" \
+    STRIP="$LLVM_TOOLCHAIN_DIR/bin/llvm-strip" \
+    OBJCOPY="$LLVM_TOOLCHAIN_DIR/bin/llvm-objcopy" \
+    OBJDUMP="$LLVM_TOOLCHAIN_DIR/bin/llvm-objdump" \
+    READELF="$LLVM_TOOLCHAIN_DIR/bin/llvm-readelf" \
+    HOSTCC="$LLVM_TOOLCHAIN_DIR/bin/clang" \
+    HOSTCXX="$LLVM_TOOLCHAIN_DIR/bin/clang++" \
+    HOSTAR="$LLVM_TOOLCHAIN_DIR/bin/llvm-ar" \
+    HOSTLD="$LLVM_TOOLCHAIN_DIR/bin/ld.lld" \
+    mrproper
 
   local src
   for src in "${source[@]}"; do
@@ -139,15 +236,43 @@ prepare() {
 
   echo "Setting config..."
   cp ../config .config
-  _make olddefconfig
+  _make \
+    CC="$LLVM_TOOLCHAIN_DIR/bin/clang" \
+    LD="$LLVM_TOOLCHAIN_DIR/bin/ld.lld" \
+    AR="$LLVM_TOOLCHAIN_DIR/bin/llvm-ar" \
+    NM="$LLVM_TOOLCHAIN_DIR/bin/llvm-nm" \
+    STRIP="$LLVM_TOOLCHAIN_DIR/bin/llvm-strip" \
+    OBJCOPY="$LLVM_TOOLCHAIN_DIR/bin/llvm-objcopy" \
+    OBJDUMP="$LLVM_TOOLCHAIN_DIR/bin/llvm-objdump" \
+    READELF="$LLVM_TOOLCHAIN_DIR/bin/llvm-readelf" \
+    HOSTCC="$LLVM_TOOLCHAIN_DIR/bin/clang" \
+    HOSTCXX="$LLVM_TOOLCHAIN_DIR/bin/clang++" \
+    HOSTAR="$LLVM_TOOLCHAIN_DIR/bin/llvm-ar" \
+    HOSTLD="$LLVM_TOOLCHAIN_DIR/bin/ld.lld" \
+    olddefconfig
   diff -u ../config .config || :
 
   echo "Prepared $pkgbase version $(<version)"
 }
 
 build() {
+  export LLVM_TOOLCHAIN_DIR=$(pwd)/llvm-17.0.0-rc1
+  
   cd $_srcname
-  _make all
+  _make \
+    CC="$LLVM_TOOLCHAIN_DIR/bin/clang" \
+    LD="$LLVM_TOOLCHAIN_DIR/bin/ld.lld" \
+    AR="$LLVM_TOOLCHAIN_DIR/bin/llvm-ar" \
+    NM="$LLVM_TOOLCHAIN_DIR/bin/llvm-nm" \
+    STRIP="$LLVM_TOOLCHAIN_DIR/bin/llvm-strip" \
+    OBJCOPY="$LLVM_TOOLCHAIN_DIR/bin/llvm-objcopy" \
+    OBJDUMP="$LLVM_TOOLCHAIN_DIR/bin/llvm-objdump" \
+    READELF="$LLVM_TOOLCHAIN_DIR/bin/llvm-readelf" \
+    HOSTCC="$LLVM_TOOLCHAIN_DIR/bin/clang" \
+    HOSTCXX="$LLVM_TOOLCHAIN_DIR/bin/clang++" \
+    HOSTAR="$LLVM_TOOLCHAIN_DIR/bin/llvm-ar" \
+    HOSTLD="$LLVM_TOOLCHAIN_DIR/bin/ld.lld" \
+    all
 }
 
 _package() {
