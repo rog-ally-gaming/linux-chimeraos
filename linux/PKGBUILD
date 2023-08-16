@@ -209,20 +209,7 @@ prepare() {
     HOSTAR="$LLVM_TOOLCHAIN_DIR/bin/llvm-ar" \
     HOSTLD="$LLVM_TOOLCHAIN_DIR/bin/ld.lld" \
     -s kernelrelease > version
-  make \
-    CC="$LLVM_TOOLCHAIN_DIR/bin/clang" \
-    LD="$LLVM_TOOLCHAIN_DIR/bin/ld.lld" \
-    AR="$LLVM_TOOLCHAIN_DIR/bin/llvm-ar" \
-    NM="$LLVM_TOOLCHAIN_DIR/bin/llvm-nm" \
-    STRIP="$LLVM_TOOLCHAIN_DIR/bin/llvm-strip" \
-    OBJCOPY="$LLVM_TOOLCHAIN_DIR/bin/llvm-objcopy" \
-    OBJDUMP="$LLVM_TOOLCHAIN_DIR/bin/llvm-objdump" \
-    READELF="$LLVM_TOOLCHAIN_DIR/bin/llvm-readelf" \
-    HOSTCC="$LLVM_TOOLCHAIN_DIR/bin/clang" \
-    HOSTCXX="$LLVM_TOOLCHAIN_DIR/bin/clang++" \
-    HOSTAR="$LLVM_TOOLCHAIN_DIR/bin/llvm-ar" \
-    HOSTLD="$LLVM_TOOLCHAIN_DIR/bin/ld.lld" \
-    mrproper
+  _make mrproper
 
   local src
   for src in "${source[@]}"; do
