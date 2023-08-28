@@ -31,8 +31,8 @@ makedepends=(
   clang
 )
 optdepends=(
-  dkms: build out-of-tree kernel modules
-  clang: needed when using dkms
+  'dkms: build out-of-tree kernel modules'
+  'clang: needed when using dkms'
 )
 options=('!strip')
 _srcname=chimeraos-linux
