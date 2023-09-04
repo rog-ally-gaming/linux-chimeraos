@@ -1,14 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-<<<<<<< HEAD
-<<<<<<< HEAD
-# Linux/x86 6.4.7-chos4 Kernel Configuration
-=======
-# Linux/x86 6.5.0-chos1 Kernel Configuration
->>>>>>> main
-=======
 # Linux/x86 6.5.1-chos1 Kernel Configuration
->>>>>>> main
 #
 CONFIG_CC_VERSION_TEXT="clang version 17.0.0"
 CONFIG_GCC_VERSION=0
