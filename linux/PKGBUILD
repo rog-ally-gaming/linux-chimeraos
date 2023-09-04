@@ -91,9 +91,11 @@ source=(
   # More CPU architectures
   more-uarches-for-kernel-5.17+.patch
 
-  #0007-v6.4-winesync.patch
+  0007-v6.5-winesync.patch
 
   0013-optimize_harder_O3.patch
+
+  0003-eevdf.patch
 )
 
 validpgpkeys=(
@@ -134,8 +136,9 @@ b2sums=(
         '1cdc104776559a119ac4f0d9afd33a0cbc8ac01576b1a79158ac0c2ce63ba89b021522081b8b6739c2b87b722f060a67b5262a257b1ffadf34f19942db6148a1'
         '9691fc6d6b6f5c19d5b6e6f8d4f59dbb3380f78818b2750f9e440e1d00175768175effb9252fb91e8821b0fd806ac80096727ed30defa1e43f7b23575504ed8a'
         '508ff463d936e07e0c3ac2017da12bda52d3db5d98d45fe908f35c4d9fadb253cc9d5c17b8915ec600b5024fcecc2746a04d32096e7ebf691438d4ab8bd067a8' # more-uarches-for-kernel-5.17+.patch
-        #'bdcf54a61b9b1706383cab7a2aa67ff8b62c2cb2503147efad5fc402003aef1a3ec046b9902c7409d2be49e9f16ca949b631e1ba47abef432235da6cf7b6a238' # 0007-v6.4-winesync.patch
+        'bdcf54a61b9b1706383cab7a2aa67ff8b62c2cb2503147efad5fc402003aef1a3ec046b9902c7409d2be49e9f16ca949b631e1ba47abef432235da6cf7b6a238' # 0007-v6.5-winesync.patch
         'e74d75f1f1200e48b189ffe8f4bcb0014de6c6c3e5b43979de2c08fde78879c96f9f067d4ba8da35dbe3db9173f8302b5bce8d7d526a692cba61357f3d08d553' # 0013-optimize_harder_O3.patch
+        '9c918f43687e1d6732c66df8776c2f3888e690fe64456c5af594f9d4d140a44115866071a7d8ff40e20bd10af5720ef94d8a36e06e30ecd15e136516beee3c1d' # 0003-eevdf.patch
 )
 
 export KBUILD_BUILD_HOST=archlinux
