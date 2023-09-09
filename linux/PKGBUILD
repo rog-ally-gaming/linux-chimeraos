@@ -170,10 +170,6 @@ prepare() {
 #  mv "linux-${_mainlinever}" $_srcname
 #  cd $_srcname
 
-
-  mv "linux-${_srctag}" $_srcname
-  cd $_srcname
-
   echo "Setting version..."
   echo "${pkgbase#linux}" > localversion.10-pkgname
   echo "-$pkgrel" > localversion.20-pkgrel
