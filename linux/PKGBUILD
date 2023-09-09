@@ -165,7 +165,7 @@ _make() {
 prepare() {
 
 #   cp linux-${_mainlinever}/drivers/iio/accel/bmc150-*  $_srcname/drivers/iio/accel/
-   cd linux-${_mainlinever}
+   cd linux-${_srctag}
 
 #  mv "linux-${_mainlinever}" $_srcname
 #  cd $_srcname
@@ -207,7 +207,7 @@ prepare() {
 }
 
 build() {
-  cp linux-${_mainlinever}/drivers/iio/accel/bmc150-*  $_srcname/drivers/iio/accel/
+  cp linux-${_srctag}/drivers/iio/accel/bmc150-*  $_srcname/drivers/iio/accel/
 
   cd $_srcname
   _make all
