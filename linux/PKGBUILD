@@ -100,6 +100,8 @@ source=(
   0013-optimize_harder_O3.patch
 
   0003-eevdf.patch
+
+  bmc150.patch
 )
 
 validpgpkeys=(
@@ -146,6 +148,7 @@ b2sums=(
         'bdcf54a61b9b1706383cab7a2aa67ff8b62c2cb2503147efad5fc402003aef1a3ec046b9902c7409d2be49e9f16ca949b631e1ba47abef432235da6cf7b6a238' # 0007-v6.5-winesync.patch
         'e74d75f1f1200e48b189ffe8f4bcb0014de6c6c3e5b43979de2c08fde78879c96f9f067d4ba8da35dbe3db9173f8302b5bce8d7d526a692cba61357f3d08d553' # 0013-optimize_harder_O3.patch
         '9c918f43687e1d6732c66df8776c2f3888e690fe64456c5af594f9d4d140a44115866071a7d8ff40e20bd10af5720ef94d8a36e06e30ecd15e136516beee3c1d' # 0003-eevdf.patch
+        'SKIP'
 )
 
 export KBUILD_BUILD_HOST=archlinux
@@ -160,6 +163,14 @@ _make() {
 }
 
 prepare() {
+
+#   cp linux-${_mainlinever}/drivers/iio/accel/bmc150-*  $_srcname/drivers/iio/accel/
+   cd linux-${_mainlinever}
+
+#  mv "linux-${_mainlinever}" $_srcname
+#  cd $_srcname
+
+
   mv "linux-${_srctag}" $_srcname
   cd $_srcname
 
@@ -200,6 +211,8 @@ prepare() {
 }
 
 build() {
+  cp linux-${_mainlinever}/drivers/iio/accel/bmc150-*  $_srcname/drivers/iio/accel/
+
   cd $_srcname
   _make all
 
