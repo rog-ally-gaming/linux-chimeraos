@@ -112,7 +112,7 @@ validpgpkeys=(
 )
 b2sums=(
         '74a4f998987780001e924e28f8a3f585cd50da9d87d120bcb33fe1fd4fccccc2301fbc3c84c62e914e4694b5eb138e33cacda515db51d5a3997d114154449be3' # kernel source
-        'b8c8837681d47dd0be777a09adac69ace50f0d7c672a9c5fa221c008bcfda5dd5591eac89397f1e4780ba277e6bf0165df6220842b8c61b3fcad883146fd9806' # config
+        'SKIP' # config
         'b1653bee12c29f1d6b183d4365542ed05b4a1309f76e6722dd1cbce784e771979e655e0ceeb0ca89cd230fb62d005de198861f565654588435bc0137d5f10cba'
         '1ef41b2b0d6f77bc3cab6b0cdb030bc7aa14bbbec359f5263b9f89193f2d17373e8b29531ff7211cb4d3e01659f09813e24ef3e0b0a479091161c5740f9a06c1'
         '43e9629ca17c8c46b08427c8c28225d8ba28865a6241d795d61b63ba4e416b8a0f9a7ba6288c3bf4e0f71f1da38718f1341e3e2f0bdb3a30692ff994b9cb9c52'
@@ -207,7 +207,9 @@ prepare() {
 }
 
 build() {
-  cp linux-${_srctag}/drivers/iio/accel/bmc150-*  $_srcname/drivers/iio/accel/
+  cp linux-${_srctag}/.config $_srcname/
+  cp linux-${_srctag}/drivers/iio/accel/bmc150-*.c  $_srcname/drivers/iio/accel/
+  cp linux-${_srctag}/drivers/iio/*.c  $_srcname/drivers/iio/
 
   cd $_srcname
   _make all
