@@ -208,7 +208,7 @@ prepare() {
 
 build() {
   cp linux-${_srctag}/.config $_srcname/
-  cp linux-${_srctag}/drivers/iio/accel/bmc150-*.c  $_srcname/drivers/iio/accel/
+  cp linux-${_srctag}/drivers/iio/accel/bmc150-*  $_srcname/drivers/iio/accel/
   cp linux-${_srctag}/drivers/iio/*.c  $_srcname/drivers/iio/
 
   cd $_srcname
