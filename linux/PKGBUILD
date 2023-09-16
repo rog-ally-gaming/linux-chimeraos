@@ -1,10 +1,10 @@
 # Maintainer: Jan Alexander Steffens (heftig) <heftig@archlinux.org>
 # Maintainer: Joaquín I. Aramendía (samsagax) <samsagaxg@gmail.com>
 
-pkgbase=linux-chimeraos
-pkgver=6.5.2.chos1
+pkgbase=linux-neroreflex
+pkgver=6.5.2.nrflx1
 pkgrel=1
-pkgdesc='Linux ChimeraOS'
+pkgdesc='Linux NeroReflex'
 _srctag=${pkgver%.*}
 _srcpatch=${pkgver##*.}
 url="https://github.com/ChimeraOS/linux-chimeraos"
@@ -101,7 +101,7 @@ source=(
 
   0003-eevdf.patch
 
-  OpenRGB-patch-fix.patch
+  #OpenRGB-patch-fix.patch
 )
 
 validpgpkeys=(
@@ -148,7 +148,7 @@ b2sums=(
         'bdcf54a61b9b1706383cab7a2aa67ff8b62c2cb2503147efad5fc402003aef1a3ec046b9902c7409d2be49e9f16ca949b631e1ba47abef432235da6cf7b6a238' # 0007-v6.5-winesync.patch
         'e74d75f1f1200e48b189ffe8f4bcb0014de6c6c3e5b43979de2c08fde78879c96f9f067d4ba8da35dbe3db9173f8302b5bce8d7d526a692cba61357f3d08d553' # 0013-optimize_harder_O3.patch
         '9c918f43687e1d6732c66df8776c2f3888e690fe64456c5af594f9d4d140a44115866071a7d8ff40e20bd10af5720ef94d8a36e06e30ecd15e136516beee3c1d' # 0003-eevdf.patch
-        'f668ca5d105e1a837822f220188a6f8c1446b9fd37e105209c89ea40001f0d5e3efcc578d2b8513263ec4dc01f9f1979350c50bc1cc4cc2d7241eff8c706633d' # OpenRGB-patch-fix.patch
+        #'f668ca5d105e1a837822f220188a6f8c1446b9fd37e105209c89ea40001f0d5e3efcc578d2b8513263ec4dc01f9f1979350c50bc1cc4cc2d7241eff8c706633d' # OpenRGB-patch-fix.patch
 )
 
 export KBUILD_BUILD_HOST=archlinux
