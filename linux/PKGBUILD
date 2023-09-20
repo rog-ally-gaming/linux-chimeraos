@@ -213,6 +213,7 @@ prepare() {
 build() {
   cp linux-${_srctag}/.config $_srcname/
   cp linux-${_srctag}/drivers/iio/accel/bmc150-*  $_srcname/drivers/iio/accel/
+  cp linux-${_srctag}/drivers/hid/hid-asus.c $_srcname/drivers/hid/hid-asus.c
   #cp linux-${_srctag}/drivers/iio/*.c  $_srcname/drivers/iio/
   #cp linux-${_srctag}/drivers/base/power/*.c  $_srcname/drivers/base/power/
 
