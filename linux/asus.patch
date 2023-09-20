@@ -1,0 +1,49 @@
+From 478128e5991b4f360041a092c4962b08c05ecd12 Mon Sep 17 00:00:00 2001
+From: Denis <benato.denis96@gmail.com>
+Date: Wed, 20 Sep 2023 03:03:17 +0200
+Subject: [PATCH] send HID_SET_IDLE
+
+---
+ drivers/hid/hid-asus.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/drivers/hid/hid-asus.c b/drivers/hid/hid-asus.c
+index fd61dba88233..0d278a3be8db 100644
+--- a/drivers/hid/hid-asus.c
++++ b/drivers/hid/hid-asus.c
+@@ -1010,6 +1010,24 @@ static int __maybe_unused asus_reset_resume(struct hid_device *hdev)
+ 	return 0;
+ }
+ 
++int asus_suspend(struct hid_device *hdev, pm_message_t message) {
++	dev_warn(&hdev->dev, "Going to sleep. Sending SET_IDLE #1");
++	
++	hid_hw_idle(hdev, 0, 0, HID_REQ_SET_IDLE);
++
++	dev_warn(&hdev->dev, "Going to sleep. Sending SET_IDLE #2");
++
++	hid_hw_idle(hdev, 0, 0, HID_REQ_SET_IDLE);
++
++	dev_warn(&hdev->dev, "Going to sleep. Sending SET_IDLE #3");
++
++	hid_hw_idle(hdev, 0, 0, HID_REQ_SET_IDLE);
++
++	
++
++	return 0;
++}
++
+ static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
+ {
+ 	int ret;
+@@ -1294,6 +1312,7 @@ static struct hid_driver asus_driver = {
+ 	.input_configured       = asus_input_configured,
+ #ifdef CONFIG_PM
+ 	.reset_resume           = asus_reset_resume,
++	.suspend				= asus_suspend,
+ #endif
+ 	.event			= asus_event,
+ 	.raw_event		= asus_raw_event
+-- 
+2.42.0
+
