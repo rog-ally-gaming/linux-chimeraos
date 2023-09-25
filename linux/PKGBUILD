@@ -103,6 +103,7 @@ source=(
 
   bmc150.patch
   asus.patch
+  #ROG-ALLY-NCT6775-PLATFORM.patch
   #OpenRGB-patch-fix.patch
 )
 
@@ -152,6 +153,7 @@ b2sums=(
         '9c918f43687e1d6732c66df8776c2f3888e690fe64456c5af594f9d4d140a44115866071a7d8ff40e20bd10af5720ef94d8a36e06e30ecd15e136516beee3c1d' # 0003-eevdf.patch
         'SKIP'
         'SKIP'
+        #'SKIP'
         #'f668ca5d105e1a837822f220188a6f8c1446b9fd37e105209c89ea40001f0d5e3efcc578d2b8513263ec4dc01f9f1979350c50bc1cc4cc2d7241eff8c706633d' # OpenRGB-patch-fix.patch
 )
 
@@ -214,6 +216,7 @@ build() {
   cp linux-${_srctag}/.config $_srcname/
   cp linux-${_srctag}/drivers/iio/accel/bmc150-*  $_srcname/drivers/iio/accel/
   cp linux-${_srctag}/drivers/hid/hid-asus.c $_srcname/drivers/hid/hid-asus.c
+  cp linux-${_srctag}/drivers/hwmon/nct6775-platform.c $_srcname/drivers/hwmon/nct6775-platform.c
   #cp linux-${_srctag}/drivers/iio/*.c  $_srcname/drivers/iio/
   #cp linux-${_srctag}/drivers/base/power/*.c  $_srcname/drivers/base/power/
 
