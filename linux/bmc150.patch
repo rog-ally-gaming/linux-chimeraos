@@ -1,19 +1,40 @@
-From 6c79107a19740fd9fff05f3d1ca1232ae2a8cb07 Mon Sep 17 00:00:00 2001
+From 622ea77bfccd751247b1c08c3126d7ab716f0423 Mon Sep 17 00:00:00 2001
 From: Denis <benato.denis96@gmail.com>
-Date: Mon, 18 Sep 2023 01:57:19 +0200
-Subject: [PATCH 01/18] Fixed all warnings, code almost ready to be upstreamed
+Date: Mon, 25 Sep 2023 03:38:49 +0200
+Subject: [PATCH] This commit adds support to the bmi323 device on top of the
+ pre-existing bmc150 kernel module.
 
+Some new devices for example the ROG Ally and the Air Plus identify this chip in the ACPI table as a bmc150 so previously the original module was loaded,
+but was erroring out as it cannot handle such device.
+
+The device I own does not allow me to use the interrupt part of the device as the interrupt pin is not connected (or not advertised to be connected) hence
+I avoided including on this commit anything related to IRQ.
+
+This driver has already been proved to work well enough to be used in the switch emulator "yuzu".
+
+While designing this module my main focus was not to alter the original driver and not to limit the original author in regard to future mofications,
+and I was mostly able to achive this, except:
+1) I added a new structure on top of the original one and added a field that is responsible for holding information
+on what type of chip the module is currently managing
+2) the previous point required the init function of the original driver to write that field in order to be sure no bmi323 code
+was executed when the old part of the module is managing the device
+3) as the original driver issued an i2c write on some register not really meant to be written in the bmi323 device I have made sure an i2c read to discover
+the bmi323 is performed prior to that code: such read SHOULD fail in the older bmc150 IC for two reasons:
+    - the i2c address is not reported in the memory map of the bmc150 in its datasheet
+    - the i2c read attempts to get 4 bytes out of a 8-bit device
+    - the fourth bit (the one that cannot be read from a bmc150 device) is initialized to 0 and bmi323 presence is signaled with a 1 in the LSB
+      that is the fourth coming out of the device in temporal order
 ---
- drivers/iio/accel/bmc150-accel-core.c | 1882 ++++++++++++++++++++++++-
- drivers/iio/accel/bmc150-accel-i2c.c  |   93 +-
- drivers/iio/accel/bmc150-accel.h      |   90 +-
- 3 files changed, 2054 insertions(+), 11 deletions(-)
+ drivers/iio/accel/bmc150-accel-core.c | 2307 ++++++++++++++++++++++++-
+ drivers/iio/accel/bmc150-accel-i2c.c  |  100 +-
+ drivers/iio/accel/bmc150-accel.h      |   94 +-
+ 3 files changed, 2495 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/iio/accel/bmc150-accel-core.c b/drivers/iio/accel/bmc150-accel-core.c
-index 110591804b4c..5ac25c344385 100644
+index 110591804b4c..9a2c1732c9ef 100644
 --- a/drivers/iio/accel/bmc150-accel-core.c
 +++ b/drivers/iio/accel/bmc150-accel-core.c
-@@ -130,6 +130,71 @@
+@@ -130,6 +130,73 @@
  #define BMC150_ACCEL_REG_FIFO_DATA		0x3F
  #define BMC150_ACCEL_FIFO_LENGTH		32
  
@@ -22,70 +43,72 @@ index 110591804b4c..5ac25c344385 100644
 +
 +#define BMC150_BMI323_AUTO_SUSPEND_DELAY_MS 2000
 +
-+#define BMC150_BMI323_CHIP_ID_REG			0x00
-+#define BMC150_BMI323_SOFT_RESET_REG		0x7E
-+#define BMC150_BMI323_SOFT_RESET_VAL		0xDEAFU
-+#define BMC150_BMI323_DATA_BASE_REG			0x03
-+#define BMC150_BMI323_TEMPERATURE_DATA_REG	0x09
-+#define BMC150_BMI323_ACC_CONF_REG			0x20
-+#define BMC150_BMI323_GYR_CONF_REG			0x21
-+#define BMC150_BMI323_FIFO_CONF_REG			0x36
++#define BMC150_BMI323_CHIP_ID_REG 0x00
++#define BMC150_BMI323_SOFT_RESET_REG 0x7E
++#define BMC150_BMI323_SOFT_RESET_VAL 0xDEAFU
++#define BMC150_BMI323_DATA_BASE_REG 0x03
++#define BMC150_BMI323_TEMPERATURE_DATA_REG 0x09
++#define BMC150_BMI323_FIFO_FILL_LEVEL_REG 0x15
++#define BMC150_BMI323_FIFO_DATA_REG 0x16
++#define BMC150_BMI323_ACC_CONF_REG 0x20
++#define BMC150_BMI323_GYR_CONF_REG 0x21
++#define BMC150_BMI323_FIFO_CONF_REG 0x36
 +
 +// these are bits [0:3] of ACC_CONF.acc_odr, sample rate in Hz for the accel part of the chip
-+#define BMC150_BMI323_ACCEL_ODR_0_78123_VAL	0x0001
-+#define BMC150_BMI323_ACCEL_ODR_1_5625_VAL	0x0002
-+#define BMC150_BMI323_ACCEL_ODR_3_125_VAL	0x0003
-+#define BMC150_BMI323_ACCEL_ODR_6_25_VAL	0x0004
-+#define BMC150_BMI323_ACCEL_ODR_12_5_VAL	0x0005
-+#define BMC150_BMI323_ACCEL_ODR_25_VAL		0x0006
-+#define BMC150_BMI323_ACCEL_ODR_50_VAL		0x0007
-+#define BMC150_BMI323_ACCEL_ODR_100_VAL		0x0008
-+#define BMC150_BMI323_ACCEL_ODR_200_VAL		0x0009
-+#define BMC150_BMI323_ACCEL_ODR_400_VAL		0x000A
-+#define BMC150_BMI323_ACCEL_ODR_800_VAL		0x000B
-+#define BMC150_BMI323_ACCEL_ODR_1600_VAL	0x000C
-+#define BMC150_BMI323_ACCEL_ODR_3200_VAL	0x000D
-+#define BMC150_BMI323_ACCEL_ODR_6400_VAL	0x000E
++#define BMC150_BMI323_ACCEL_ODR_0_78123_VAL 0x0001
++#define BMC150_BMI323_ACCEL_ODR_1_5625_VAL 0x0002
++#define BMC150_BMI323_ACCEL_ODR_3_125_VAL 0x0003
++#define BMC150_BMI323_ACCEL_ODR_6_25_VAL 0x0004
++#define BMC150_BMI323_ACCEL_ODR_12_5_VAL 0x0005
++#define BMC150_BMI323_ACCEL_ODR_25_VAL 0x0006
++#define BMC150_BMI323_ACCEL_ODR_50_VAL 0x0007
++#define BMC150_BMI323_ACCEL_ODR_100_VAL 0x0008
++#define BMC150_BMI323_ACCEL_ODR_200_VAL 0x0009
++#define BMC150_BMI323_ACCEL_ODR_400_VAL 0x000A
++#define BMC150_BMI323_ACCEL_ODR_800_VAL 0x000B
++#define BMC150_BMI323_ACCEL_ODR_1600_VAL 0x000C
++#define BMC150_BMI323_ACCEL_ODR_3200_VAL 0x000D
++#define BMC150_BMI323_ACCEL_ODR_6400_VAL 0x000E
 +
-+#define BMC150_BMI323_ACCEL_BW_ODR_2_VAL	0x0000
-+#define BMC150_BMI323_ACCEL_BW_ODR_4_VAL	0x0001
++#define BMC150_BMI323_ACCEL_BW_ODR_2_VAL 0x0000
++#define BMC150_BMI323_ACCEL_BW_ODR_4_VAL 0x0001
 +
 +// these are bits [4:6] of ACC_CONF.acc_range, full scale resolution
-+#define BMC150_BMI323_ACCEL_RANGE_2_VAL		0x0000 // +/-2g, 16.38 LSB/mg
-+#define BMC150_BMI323_ACCEL_RANGE_4_VAL		0x0001 // +/-4g, 8.19 LSB/mg
-+#define BMC150_BMI323_ACCEL_RANGE_8_VAL		0x0002 // +/-8g, 4.10 LSB/mg
-+#define BMC150_BMI323_ACCEL_RANGE_16_VAL	0x0003 // +/-4g, 2.05 LSB/mg
++#define BMC150_BMI323_ACCEL_RANGE_2_VAL 0x0000 // +/-2g, 16.38 LSB/mg
++#define BMC150_BMI323_ACCEL_RANGE_4_VAL 0x0001 // +/-4g, 8.19 LSB/mg
++#define BMC150_BMI323_ACCEL_RANGE_8_VAL 0x0002 // +/-8g, 4.10 LSB/mg
++#define BMC150_BMI323_ACCEL_RANGE_16_VAL 0x0003 // +/-4g, 2.05 LSB/mg
 +
 +// these are bits [0:3] of GYR_CONF.gyr_odr, sample rate in Hz for the gyro part of the chip
-+#define BMC150_BMI323_GYRO_ODR_0_78123_VAL	0x0001
-+#define BMC150_BMI323_GYRO_ODR_1_5625_VAL	0x0002
-+#define BMC150_BMI323_GYRO_ODR_3_125_VAL	0x0003
-+#define BMC150_BMI323_GYRO_ODR_6_25_VAL		0x0004
-+#define BMC150_BMI323_GYRO_ODR_12_5_VAL		0x0005
-+#define BMC150_BMI323_GYRO_ODR_25_VAL		0x0006
-+#define BMC150_BMI323_GYRO_ODR_50_VAL		0x0007
-+#define BMC150_BMI323_GYRO_ODR_100_VAL		0x0008
-+#define BMC150_BMI323_GYRO_ODR_200_VAL		0x0009
-+#define BMC150_BMI323_GYRO_ODR_400_VAL		0x000A
-+#define BMC150_BMI323_GYRO_ODR_800_VAL		0x000B
-+#define BMC150_BMI323_GYRO_ODR_1600_VAL		0x000C
-+#define BMC150_BMI323_GYRO_ODR_3200_VAL		0x000D
-+#define BMC150_BMI323_GYRO_ODR_6400_VAL		0x000E
++#define BMC150_BMI323_GYRO_ODR_0_78123_VAL 0x0001
++#define BMC150_BMI323_GYRO_ODR_1_5625_VAL 0x0002
++#define BMC150_BMI323_GYRO_ODR_3_125_VAL 0x0003
++#define BMC150_BMI323_GYRO_ODR_6_25_VAL 0x0004
++#define BMC150_BMI323_GYRO_ODR_12_5_VAL 0x0005
++#define BMC150_BMI323_GYRO_ODR_25_VAL 0x0006
++#define BMC150_BMI323_GYRO_ODR_50_VAL 0x0007
++#define BMC150_BMI323_GYRO_ODR_100_VAL 0x0008
++#define BMC150_BMI323_GYRO_ODR_200_VAL 0x0009
++#define BMC150_BMI323_GYRO_ODR_400_VAL 0x000A
++#define BMC150_BMI323_GYRO_ODR_800_VAL 0x000B
++#define BMC150_BMI323_GYRO_ODR_1600_VAL 0x000C
++#define BMC150_BMI323_GYRO_ODR_3200_VAL 0x000D
++#define BMC150_BMI323_GYRO_ODR_6400_VAL 0x000E
 +
-+#define BMC150_BMI323_GYRO_BW_ODR_2_VAL		0x0000
-+#define BMC150_BMI323_GYRO_BW_ODR_4_VAL		0x0001
++#define BMC150_BMI323_GYRO_BW_ODR_2_VAL 0x0000
++#define BMC150_BMI323_GYRO_BW_ODR_4_VAL 0x0001
 +
 +// these are bits [4:6] of GYR_CONF.gyr_range, full scale resolution
-+#define BMC150_BMI323_GYRO_RANGE_125_VAL	0x0000 // +/-125°/s, 262.144 LSB/°/s
-+#define BMC150_BMI323_GYRO_RANGE_250_VAL	0x0001 // +/-250°/s,  131.2 LSB/°/s
-+#define BMC150_BMI323_GYRO_RANGE_500_VAL	0x0002 // +/-500°/s,  65.6 LSB/°/s
-+#define BMC150_BMI323_GYRO_RANGE_1000_VAL	0x0003 // +/-1000°/s, 32.8 LSB/°/s
-+#define BMC150_BMI323_GYRO_RANGE_2000_VAL	0x0004 // +/-2000°/s, 16.4 LSB/°/s
++#define BMC150_BMI323_GYRO_RANGE_125_VAL 0x0000 // +/-125°/s, 262.144 LSB/°/s
++#define BMC150_BMI323_GYRO_RANGE_250_VAL 0x0001 // +/-250°/s,  131.2 LSB/°/s
++#define BMC150_BMI323_GYRO_RANGE_500_VAL 0x0002 // +/-500°/s,  65.6 LSB/°/s
++#define BMC150_BMI323_GYRO_RANGE_1000_VAL 0x0003 // +/-1000°/s, 32.8 LSB/°/s
++#define BMC150_BMI323_GYRO_RANGE_2000_VAL 0x0004 // +/-2000°/s, 16.4 LSB/°/s
 +
  enum bmc150_accel_axis {
  	AXIS_X,
  	AXIS_Y,
-@@ -149,6 +214,646 @@ struct bmc150_scale_info {
+@@ -149,6 +216,654 @@ struct bmc150_scale_info {
  	u8 reg_range;
  };
  
@@ -196,7 +219,8 @@ index 110591804b4c..5ac25c344385 100644
 +		.val2 = 1064724,
 +		.ret_type = IIO_VAL_INT_PLUS_NANO,
 +	},
-+	{ // this shouldn't be necessary, but iio seems to have a wrong rounding of this value...
++	{
++		// this shouldn't be necessary, but iio seems to have a wrong rounding of this value...
 +		.hw_val = (u16)BMC150_BMI323_GYRO_RANGE_2000_VAL << (u16)4,
 +		.val = 0,
 +		.val2 = 1064,
@@ -214,7 +238,7 @@ index 110591804b4c..5ac25c344385 100644
 + * this reflects the frequency map that is following.
 + * For each index i of that map index i*2 and i*2+1 of of this
 + * holds ODR/2 and ODR/4
-+ */ 
++ */
 +static const struct bmi323_3db_freq_cutoff_accel_info {
 +	int val;
 +	int val2;
@@ -376,76 +400,91 @@ index 110591804b4c..5ac25c344385 100644
 +	u8 hw_val;
 +	int val;
 +	int val2;
++	s64 time_ns;
 +} bmi323_accel_odr_map[] = {
 +	{
 +		.hw_val = BMC150_BMI323_ACCEL_ODR_0_78123_VAL,
 +		.val = 0,
 +		.val2 = 781230,
++		.time_ns = 1280032769,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_ACCEL_ODR_1_5625_VAL,
 +		.val = 1,
 +		.val2 = 562600,
++		.time_ns = 886522247,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_ACCEL_ODR_3_125_VAL,
 +		.val = 3,
 +		.val2 = 125000,
++		.time_ns = 320000000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_ACCEL_ODR_6_25_VAL,
 +		.val = 6,
 +		.val2 = 250000,
++		.time_ns = 160000000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_ACCEL_ODR_12_5_VAL,
 +		.val = 12,
 +		.val2 = 500000,
++		.time_ns = 80000000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_ACCEL_ODR_25_VAL,
 +		.val = 25,
 +		.val2 = 0,
++		.time_ns = 40000000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_ACCEL_ODR_50_VAL,
 +		.val = 50,
 +		.val2 = 0,
++		.time_ns = 20000000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_ACCEL_ODR_100_VAL,
 +		.val = 100,
 +		.val2 = 0,
++		.time_ns = 10000000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_ACCEL_ODR_200_VAL,
 +		.val = 200,
 +		.val2 = 0,
++		.time_ns = 5000000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_ACCEL_ODR_400_VAL,
 +		.val = 400,
 +		.val2 = 0,
++		.time_ns = 2500000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_ACCEL_ODR_800_VAL,
 +		.val = 800,
 +		.val2 = 0,
++		.time_ns = 1250000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_ACCEL_ODR_1600_VAL,
 +		.val = 1600,
 +		.val2 = 0,
++		.time_ns = 625000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_ACCEL_ODR_3200_VAL,
 +		.val = 3200,
 +		.val2 = 0,
++		.time_ns = 312500,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_ACCEL_ODR_6400_VAL,
 +		.val = 6400,
 +		.val2 = 0,
++		.time_ns = 156250,
 +	},
 +};
 +
@@ -453,76 +492,91 @@ index 110591804b4c..5ac25c344385 100644
 +	u8 hw_val;
 +	int val;
 +	int val2;
++	s64 time_ns;
 +} bmi323_gyro_odr_map[] = {
 +	{
 +		.hw_val = BMC150_BMI323_GYRO_ODR_0_78123_VAL,
 +		.val = 0,
 +		.val2 = 781230,
++		.time_ns = 1280032769,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_GYRO_ODR_1_5625_VAL,
 +		.val = 1,
 +		.val2 = 562600,
++		.time_ns = 886522247,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_GYRO_ODR_3_125_VAL,
 +		.val = 3,
 +		.val2 = 125000,
++		.time_ns = 320000000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_GYRO_ODR_6_25_VAL,
 +		.val = 6,
 +		.val2 = 250000,
++		.time_ns = 160000000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_GYRO_ODR_12_5_VAL,
 +		.val = 12,
 +		.val2 = 500000,
++		.time_ns = 80000000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_GYRO_ODR_25_VAL,
 +		.val = 25,
 +		.val2 = 0,
++		.time_ns = 40000000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_GYRO_ODR_50_VAL,
 +		.val = 50,
 +		.val2 = 0,
++		.time_ns = 20000000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_GYRO_ODR_100_VAL,
 +		.val = 100,
 +		.val2 = 0,
++		.time_ns = 10000000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_GYRO_ODR_200_VAL,
 +		.val = 200,
 +		.val2 = 0,
++		.time_ns = 5000000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_GYRO_ODR_400_VAL,
 +		.val = 400,
 +		.val2 = 0,
++		.time_ns = 2500000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_GYRO_ODR_800_VAL,
 +		.val = 800,
 +		.val2 = 0,
++		.time_ns = 1250000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_GYRO_ODR_1600_VAL,
 +		.val = 1600,
 +		.val2 = 0,
++		.time_ns = 625000,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_GYRO_ODR_3200_VAL,
 +		.val = 3200,
 +		.val2 = 0,
++		.time_ns = 312500,
 +	},
 +	{
 +		.hw_val = BMC150_BMI323_GYRO_ODR_6400_VAL,
 +		.val = 6400,
 +		.val2 = 0,
++		.time_ns = 156250,
 +	},
 +};
 +
@@ -684,133 +738,85 @@ index 110591804b4c..5ac25c344385 100644
 +};
 +
 +static const int bmi323_accel_scales[] = {
-+	0, 598,
-+	0, 1196,
-+	0, 2392,
-+	0, 4785,
++	0, 598, 0, 1196, 0, 2392, 0, 4785,
 +};
 +
 +static const int bmi323_gyro_scales[] = {
-+	0, 66545,
-+	0, 133090,
-+	0, 266181,
-+	0, 532362,
-+	0, 1064724,
++	0, 66545, 0, 133090, 0, 266181, 0, 532362, 0, 1064724,
 +};
 +
 +static const int bmi323_sample_freqs[] = {
-+	0, 781230,
-+	1, 562600,
-+	3, 125000,
-+	6, 250000,
-+	12, 500000,
-+	25, 0,
-+	50, 0,
-+	100, 0,
-+	200, 0,
-+	400, 0,
-+	800, 0,
-+	1600, 0,
-+	3200, 0,
-+	6400, 0,
++	0,   781230, 1,	   562600, 3,	 125000, 6,    250000, 12,  500000,
++	25,  0,	     50,   0,	   100,	 0,	 200,  0,      400, 0,
++	800, 0,	     1600, 0,	   3200, 0,	 6400, 0,
 +};
 +
 +static const struct {
 +	int val;
 +	int val2; // IIO_VAL_INT_PLUS_MICRO
 +	u8 bw_bits;
-+} bmi323_samp_freq_table[] = { {15, 620000, 0x08},
-+				     {31, 260000, 0x09},
-+				     {62, 500000, 0x0A},
-+				     {125, 0, 0x0B},
-+				     {250, 0, 0x0C},
-+				     {500, 0, 0x0D},
-+				     {1000, 0, 0x0E},
-+				     {2000, 0, 0x0F} };
-+
++} bmi323_samp_freq_table[] = { { 15, 620000, 0x08 }, { 31, 260000, 0x09 },
++			       { 62, 500000, 0x0A }, { 125, 0, 0x0B },
++			       { 250, 0, 0x0C },     { 500, 0, 0x0D },
++			       { 1000, 0, 0x0E },    { 2000, 0, 0x0F } };
 +
  struct bmc150_accel_chip_info {
  	const char *name;
  	u8 chip_id;
-@@ -1085,7 +1790,7 @@ static const struct attribute_group bmc150_accel_attrs_group = {
- 	.attrs = bmc150_accel_attributes,
- };
- 
--static const struct iio_event_spec bmc150_accel_event = {
-+static const struct iio_event_spec bmi323_accel_event = {
- 		.type = IIO_EV_TYPE_ROC,
- 		.dir = IIO_EV_DIR_EITHER,
- 		.mask_separate = BIT(IIO_EV_INFO_VALUE) |
-@@ -1093,8 +1798,16 @@ static const struct iio_event_spec bmc150_accel_event = {
- 				 BIT(IIO_EV_INFO_PERIOD)
- };
- 
--#define BMC150_ACCEL_CHANNEL(_axis, bits) {				\
--	.type = IIO_ACCEL,						\
-+static const struct iio_event_spec bmc150_accel_event = {
-+		.type = IIO_EV_TYPE_ROC,
-+		.dir = IIO_EV_DIR_EITHER,
-+		.mask_separate = BIT(IIO_EV_INFO_VALUE) |
-+				 BIT(IIO_EV_INFO_ENABLE) |
-+				 BIT(IIO_EV_INFO_PERIOD)
-+};
-+
-+#define BMC150_ACCEL_CHANNEL(_axis, bits) {				\
-+	.type = IIO_ACCEL,						\
- 	.modified = 1,							\
- 	.channel2 = IIO_MOD_##_axis,					\
- 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),			\
-@@ -1113,6 +1826,49 @@ static const struct iio_event_spec bmc150_accel_event = {
+@@ -1113,6 +1828,52 @@ static const struct iio_event_spec bmc150_accel_event = {
  	.num_event_specs = 1						\
  }
  
-+#define BMI323_ACCEL_CHANNEL(_axis, bits) {				\
-+	.type = IIO_ACCEL,						\
-+	.modified = 1,							\
-+	.channel2 = IIO_MOD_##_axis,					\
-+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),		\
-+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE)		\
-+				| BIT(IIO_CHAN_INFO_SAMP_FREQ)        \
-+				| BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY),		\
-+	.info_mask_shared_by_type_available = BIT(IIO_CHAN_INFO_SAMP_FREQ) \
-+				| BIT(IIO_CHAN_INFO_SCALE), \
-+	.scan_index = BMI323_ACCEL_AXIS_##_axis,					\
-+	.scan_type = {							\
-+		.sign = 's',						\
-+		.realbits = (bits),					\
-+		.storagebits = 16,					\
-+		.shift = 16 - (bits),					\
-+		.endianness = IIO_LE,					\
-+	},								\
-+}
++#define BMI323_ACCEL_CHANNEL(_axis, bits)                                      \
++	{                                                                      \
++		.type = IIO_ACCEL, .modified = 1, .channel2 = IIO_MOD_##_axis, \
++		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),                  \
++		.info_mask_shared_by_type =                                    \
++			BIT(IIO_CHAN_INFO_SCALE) |                             \
++			BIT(IIO_CHAN_INFO_SAMP_FREQ) |                         \
++			BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY),      \
++		.info_mask_shared_by_type_available =                          \
++			BIT(IIO_CHAN_INFO_SAMP_FREQ) |                         \
++			BIT(IIO_CHAN_INFO_SCALE),                              \
++		.scan_index = BMI323_ACCEL_AXIS_##_axis,                       \
++		.scan_type = {                                                 \
++			.sign = 's',                                           \
++			.realbits = (bits),                                    \
++			.storagebits = 16,                                     \
++			.shift = 16 - (bits),                                  \
++			.endianness = IIO_LE,                                  \
++		},                                                             \
++	}
 +
-+#define BMI323_GYRO_CHANNEL(_axis, bits) {				\
-+	.type = IIO_ANGL_VEL,						\
-+	.modified = 1,							\
-+	.channel2 = IIO_MOD_##_axis,					\
-+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),			\
-+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE)		\
-+				| BIT(IIO_CHAN_INFO_SAMP_FREQ)        \
-+				| BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY),		\
-+	.info_mask_shared_by_type_available = BIT(IIO_CHAN_INFO_SAMP_FREQ) \
-+				| BIT(IIO_CHAN_INFO_SCALE), \
-+	.scan_index = BMI323_GYRO_AXIS_##_axis,					\
-+	.scan_type = {							\
-+		.sign = 's',						\
-+		.realbits = (bits),					\
-+		.storagebits = 16,					\
-+		.shift = 16 - (bits),					\
-+		.endianness = IIO_LE,					\
-+	},								\
-+	/*.ext_info = bmi323_accel_ext_info,*/				\
-+	/*.event_spec = &bmi323_accel_event,*/				\
-+	/*.num_event_specs = 1*/						\
-+}
++#define BMI323_GYRO_CHANNEL(_axis, bits)                                  \
++	{                                                                 \
++		.type = IIO_ANGL_VEL, .modified = 1,                      \
++		.channel2 = IIO_MOD_##_axis,                              \
++		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),             \
++		.info_mask_shared_by_type =                               \
++			BIT(IIO_CHAN_INFO_SCALE) |                        \
++			BIT(IIO_CHAN_INFO_SAMP_FREQ) |                    \
++			BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY), \
++		.info_mask_shared_by_type_available =                     \
++			BIT(IIO_CHAN_INFO_SAMP_FREQ) |                    \
++			BIT(IIO_CHAN_INFO_SCALE),                         \
++		.scan_index = BMI323_GYRO_AXIS_##_axis,                   \
++		.scan_type = {                                            \
++			.sign = 's',                                      \
++			.realbits = (bits),                               \
++			.storagebits = 16,                                \
++			.shift = 16 - (bits),                             \
++			.endianness = IIO_LE,                             \
++		},                                                        \
++		/*.ext_info = bmi323_accel_ext_info,*/                    \
++		/*.event_spec = &bmi323_accel_event,*/                    \
++		/*.num_event_specs = 1*/                                  \
++	}
 +
  #define BMC150_ACCEL_CHANNELS(bits) {					\
  	{								\
  		.type = IIO_TEMP,					\
-@@ -1595,7 +2351,7 @@ static int bmc150_accel_chip_init(struct bmc150_accel_data *data)
+@@ -1595,7 +2356,7 @@ static int bmc150_accel_chip_init(struct bmc150_accel_data *data)
  	struct device *dev = regmap_get_device(data->regmap);
  	int ret, i;
  	unsigned int val;
@@ -819,7 +825,7 @@ index 110591804b4c..5ac25c344385 100644
  	/*
  	 * Reset chip to get it in a known good state. A delay of 1.8ms after
  	 * reset is required according to the data sheets of supported chips.
-@@ -1677,6 +2433,11 @@ int bmc150_accel_core_probe(struct device *dev, struct regmap *regmap, int irq,
+@@ -1677,6 +2438,11 @@ int bmc150_accel_core_probe(struct device *dev, struct regmap *regmap, int irq,
  	data = iio_priv(indio_dev);
  	dev_set_drvdata(dev, indio_dev);
  
@@ -831,27 +837,22 @@ index 110591804b4c..5ac25c344385 100644
  	data->regmap = regmap;
  	data->type = type;
  
-@@ -1713,7 +2474,7 @@ int bmc150_accel_core_probe(struct device *dev, struct regmap *regmap, int irq,
- 	ret = bmc150_accel_chip_init(data);
- 	if (ret < 0)
- 		goto err_disable_regulators;
--
-+	
- 	mutex_init(&data->mutex);
- 
- 	indio_dev->channels = data->chip_info->channels;
-@@ -1826,12 +2587,1001 @@ void bmc150_accel_core_remove(struct device *dev)
+@@ -1826,12 +2592,1407 @@ void bmc150_accel_core_remove(struct device *dev)
  }
  EXPORT_SYMBOL_NS_GPL(bmc150_accel_core_remove, IIO_BMC150);
  
-+struct device* bmi323_get_managed_device(struct bmi323_private_data *bmi323) {
+-#ifdef CONFIG_PM_SLEEP
+-static int bmc150_accel_suspend(struct device *dev)
++struct device *bmi323_get_managed_device(struct bmi323_private_data *bmi323)
++{
 +	if (bmi323->i2c_client != NULL)
 +		return &bmi323->i2c_client->dev;
 +
 +	return &bmi323->spi_client->dev;
 +}
 +
-+static int bmi323_set_power_state(struct bmi323_private_data *bmi323, bool on) {
++static int bmi323_set_power_state(struct bmi323_private_data *bmi323, bool on)
++{
 +#ifdef CONFIG_PM
 +	struct device *dev = bmi323_get_managed_device(bmi323);
 +	int ret;
@@ -876,18 +877,21 @@ index 110591804b4c..5ac25c344385 100644
 +	return 0;
 +}
 +
-+int bmi323_write_u16(struct bmi323_private_data *bmi323, u8 in_reg, u16 in_value) {
++int bmi323_write_u16(struct bmi323_private_data *bmi323, u8 in_reg,
++		     u16 in_value)
++{
 +	s32 ret;
 +
 +	if (bmi323->i2c_client != NULL) {
-+		ret = i2c_smbus_write_i2c_block_data(bmi323->i2c_client, in_reg, sizeof(in_value), (u8*)(&in_value));
++		ret = i2c_smbus_write_i2c_block_data(bmi323->i2c_client, in_reg,
++						     sizeof(in_value),
++						     (u8 *)(&in_value));
 +		if (ret != 0) {
 +			return -2;
 +		}
 +
 +		return 0;
 +	} else if (bmi323->spi_client != NULL) {
-+
 +		/*
 +		 * To whoever may need this: implementing this should be straightforward:
 +		 * it's specular to the i2c part.
@@ -900,12 +904,16 @@ index 110591804b4c..5ac25c344385 100644
 +}
 +EXPORT_SYMBOL_NS_GPL(bmi323_write_u16, IIO_BMC150);
 +
-+int bmi323_read_u16(struct bmi323_private_data *bmi323, u8 in_reg, u16* out_value) {
++int bmi323_read_u16(struct bmi323_private_data *bmi323, u8 in_reg,
++		    u16 *out_value)
++{
 +	s32 ret;
 +	u8 read_bytes[4];
 +
 +	if (bmi323->i2c_client != NULL) {
-+		ret = i2c_smbus_read_i2c_block_data(bmi323->i2c_client, in_reg, sizeof(read_bytes), &read_bytes[0]);
++		ret = i2c_smbus_read_i2c_block_data(bmi323->i2c_client, in_reg,
++						    sizeof(read_bytes),
++						    &read_bytes[0]);
 +		if (ret != 4) {
 +			return ret;
 +		}
@@ -914,13 +922,14 @@ index 110591804b4c..5ac25c344385 100644
 +		// DUMMY	= read_bytes[1]
 +		// LSB		= read_bytes[2]
 +		// MSB		= read_bytes[3]
-+		u8* o = (u8*)out_value;
++		u8 *o = (u8 *)out_value;
 +		o[0] = read_bytes[2];
 +		o[1] = read_bytes[3];
 +
 +		return 0;
 +	} else if (bmi323->spi_client != NULL) {
-+		printk(KERN_CRIT "bmi323: SPI interface is not yet implemented.\n");
++		printk(KERN_CRIT
++		       "bmi323: SPI interface is not yet implemented.\n");
 +
 +		/*
 +		 * To whoever may need this: implementing this should be straightforward:
@@ -944,8 +953,10 @@ index 110591804b4c..5ac25c344385 100644
 +		return ret;
 +	}
 +
-+	if (((chip_id) & 0x00FF) != cpu_to_le16((u16)0x0043U)) {
-+		dev_err(bmi323->dev, "bmi323_chip_check failed with: %d; chip_id = 0x%04x", ret, chip_id);
++	if (((chip_id)&0x00FF) != cpu_to_le16((u16)0x0043U)) {
++		dev_err(bmi323->dev,
++			"bmi323_chip_check failed with: %d; chip_id = 0x%04x",
++			ret, chip_id);
 +
 +		return -EINVAL;
 +	}
@@ -954,43 +965,29 @@ index 110591804b4c..5ac25c344385 100644
 +}
 +EXPORT_SYMBOL_NS_GPL(bmi323_chip_check, IIO_BMC150);
 +
-+static irqreturn_t bmi323_trigger_handler(int irq, void *p)
-+{
-+	struct iio_poll_func *pf = p;
-+	struct iio_dev *indio_dev = pf->indio_dev;
-+/*	
-+	struct bmc150_accel_data *data = iio_priv(indio_dev);
-+	
-+	int ret;
-+
-+	mutex_lock(&data->mutex);
-+	ret = regmap_bulk_read(data->regmap, BMC150_ACCEL_REG_XOUT_L,
-+			       data->buffer, AXIS_MAX * 2);
-+	mutex_unlock(&data->mutex);
-+	if (ret < 0)
-+		goto err_read;
-+
-+	iio_push_to_buffers_with_timestamp(indio_dev, data->buffer,
-+					   pf->timestamp);
-+err_read:
-+*/
-+	iio_trigger_notify_done(indio_dev->trig);
-+
-+
-+	return IRQ_HANDLED;
-+}
-+
 +static int bmi323_buffer_preenable(struct iio_dev *indio_dev)
 +{
 +	struct bmc150_accel_data *data = iio_priv(indio_dev);
 +
-+	return bmi323_set_power_state(&data->bmi323, true);
++	const int ret = bmi323_set_power_state(&data->bmi323, true);
++
++	if (ret == 0) {
++		mutex_lock(&data->bmi323.mutex);
++		data->bmi323.fifo_frame_time_diff_ns =
++			(data->bmi323.acc_odr_time_ns >=
++			 data->bmi323.gyr_odr_time_ns) ?
++				data->bmi323.acc_odr_time_ns :
++				data->bmi323.gyr_odr_time_ns;
++		mutex_unlock(&data->bmi323.mutex);
++	}
++
++	return ret;
 +}
 +
 +static int bmi323_buffer_postenable(struct iio_dev *indio_dev)
 +{
 +	//struct bmc150_accel_data *data = iio_priv(indio_dev);
-+	
++
 +	/*
 +	 * This code is a placeholder until I can get a way to test it
 +	 */
@@ -1023,12 +1020,17 @@ index 110591804b4c..5ac25c344385 100644
 +	.postdisable = bmi323_buffer_postdisable,
 +};
 +
-+int bmi323_chip_rst(struct bmi323_private_data *bmi323) {
++int bmi323_chip_rst(struct bmi323_private_data *bmi323)
++{
 +	u16 sensor_status = 0x0000, device_status = 0x0000;
 +	int ret;
 +
-+	ret = bmi323_write_u16(bmi323, BMC150_BMI323_SOFT_RESET_REG, cpu_to_le16((u16)BMC150_BMI323_SOFT_RESET_VAL));
++	ret = bmi323_write_u16(bmi323, BMC150_BMI323_SOFT_RESET_REG,
++			       cpu_to_le16((u16)BMC150_BMI323_SOFT_RESET_VAL));
 +	if (ret != 0) {
++		dev_err(bmi323->dev,
++			"bmi323: error while issuing the soft-reset command: %d",
++			ret);
 +		return ret;
 +	}
 +
@@ -1037,7 +1039,8 @@ index 110591804b4c..5ac25c344385 100644
 +
 +	// if the device is connected over SPI a dummy read is to be performed once after each reset
 +	if (bmi323->spi_client != NULL) {
-+		dev_err(bmi323->dev, "issuing the dummy read to switch mode to SPI");
++		dev_info(bmi323->dev,
++			"issuing the dummy read to switch mode to SPI");
 +
 +		// do not even check the result of that... it's just a dummy read
 +		bmi323_chip_check(bmi323);
@@ -1051,27 +1054,33 @@ index 110591804b4c..5ac25c344385 100644
 +	/* now check the correct initialization status as per datasheet */
 +	ret = bmi323_read_u16(bmi323, 0x01, &device_status);
 +	if (ret != 0) {
-+		return -3;
++		return -EINVAL;
 +	}
 +
-+	if ((device_status & cpu_to_le16((u16)0x00FFU)) != cpu_to_le16((u16)0x0000U)) {
-+		dev_err(bmi323->dev, "bmi323: device_status incorrect: %d; device_status = 0x%04x", ret, device_status);
++	if ((device_status & cpu_to_le16((u16)0x00FFU)) !=
++	    cpu_to_le16((u16)0x0000U)) {
++		dev_err(bmi323->dev,
++			"bmi323: device_status incorrect: %d; device_status = 0x%04x",
++			ret, device_status);
 +
 +		/* from the datasheet: power error */
-+		return -4;
++		return -EINVAL;
 +	}
 +
 +	/* from the datasheet: power ok */
 +	ret = bmi323_read_u16(bmi323, 0x02, &sensor_status);
 +	if (ret != 0) {
-+		return -5;
++		return -EINVAL;
 +	}
 +
-+	if ((sensor_status & cpu_to_le16((u16)0x00FFU)) != cpu_to_le16((u16)0x0001U)) {
-+		dev_err(bmi323->dev, "bmi323: sensor_status incorrect: %d; sensor_status = 0x%04x", ret, sensor_status);
++	if ((sensor_status & cpu_to_le16((u16)0x00FFU)) !=
++	    cpu_to_le16((u16)0x0001U)) {
++		dev_err(bmi323->dev,
++			"bmi323: sensor_status incorrect: %d; sensor_status = 0x%04x",
++			ret, sensor_status);
 +
 +		/* from the datasheet: initialization error */
-+		return -6;
++		return -EINVAL;
 +	}
 +
 +	/* from the datasheet: initialization ok */
@@ -1097,8 +1106,8 @@ index 110591804b4c..5ac25c344385 100644
 +};
 +
 +static int bmi323_read_raw(struct iio_dev *indio_dev,
-+				 struct iio_chan_spec const *chan,
-+				 int *val, int *val2, long mask)
++			   struct iio_chan_spec const *chan, int *val,
++			   int *val2, long mask)
 +{
 +	struct bmc150_accel_data *data = iio_priv(indio_dev);
 +	int ret = -EINVAL, was_sleep_modified = -1;
@@ -1107,255 +1116,314 @@ index 110591804b4c..5ac25c344385 100644
 +	mutex_lock(&data->bmi323.mutex);
 +
 +	if ((data->bmi323.flags & BMI323_FLAGS_RESET_FAILED) != 0x00U) {
-+		dev_err(data->bmi323.dev, "bmi323 error: device has not being woken up correctly.");
++		dev_err(data->bmi323.dev,
++			"bmi323 error: device has not being woken up correctly.");
 +		mutex_unlock(&data->bmi323.mutex);
 +		return -EBUSY;
 +	}
 +
 +	switch (mask) {
-+	case IIO_CHAN_INFO_RAW:
-+		{
-+			switch (chan->type) {
-+			case IIO_TEMP:
-+				was_sleep_modified = bmi323_set_power_state(&data->bmi323, true);
-+				if (was_sleep_modified != 0) {
-+					ret = was_sleep_modified;
-+					goto bmi323_read_raw_error_power;
-+				}
-+
-+				ret = iio_device_claim_direct_mode(indio_dev);
-+				if (ret != 0) {
-+					printk(KERN_CRIT "bmc150 bmi323_read_raw IIO_TEMP iio_device_claim_direct_mode returned %d\n", ret);
-+					goto bmi323_read_raw_error;
-+				}
-+
-+				ret = bmi323_read_u16(&data->bmi323, BMC150_BMI323_TEMPERATURE_DATA_REG, &raw_read);
-+				iio_device_release_direct_mode(indio_dev);
-+				if (ret != 0) {
-+					printk(KERN_CRIT "bmc150 bmi323_read_raw IIO_TEMP bmi323_read_u16 returned %d\n", ret);
-+					goto bmi323_read_raw_error;
-+				}
-+				
-+				*val = sign_extend32(le16_to_cpu(raw_read), 15);
-+				bmi323_set_power_state(&data->bmi323, false);
-+				mutex_unlock(&data->bmi323.mutex);
-+				return IIO_VAL_INT;
-+
-+			case IIO_ACCEL:
-+				was_sleep_modified = bmi323_set_power_state(&data->bmi323, true);
-+				if (was_sleep_modified != 0) {
-+					ret = was_sleep_modified;
-+					goto bmi323_read_raw_error_power;
-+				}
-+
-+				ret = iio_device_claim_direct_mode(indio_dev);
-+				if (ret != 0) {
-+					printk(KERN_CRIT "bmc150 bmi323_read_raw IIO_ACCEL iio_device_claim_direct_mode returned %d\n", ret);
-+					goto bmi323_read_raw_error;
-+				}
-+
-+				ret = bmi323_read_u16(&data->bmi323, BMC150_BMI323_DATA_BASE_REG + (u8)(chan->scan_index), &raw_read);
-+				iio_device_release_direct_mode(indio_dev);
-+				if (ret != 0) {
-+					printk(KERN_CRIT "bmc150 bmi323_read_raw IIO_ACCEL bmi323_read_u16 returned %d\n", ret);
-+					goto bmi323_read_raw_error;
-+				}
-+				*val = sign_extend32(le16_to_cpu(raw_read), 15);
-+				bmi323_set_power_state(&data->bmi323, false);
-+				mutex_unlock(&data->bmi323.mutex);
-+				return IIO_VAL_INT;
-+
-+			case IIO_ANGL_VEL:
-+				was_sleep_modified = bmi323_set_power_state(&data->bmi323, true);
-+				if (was_sleep_modified != 0) {
-+					ret = was_sleep_modified;
-+					goto bmi323_read_raw_error_power;
-+				}
-+
-+				ret = iio_device_claim_direct_mode(indio_dev);
-+				if (ret != 0) {
-+					printk(KERN_CRIT "bmc150 bmi323_read_raw IIO_ANGL_VEL iio_device_claim_direct_mode returned %d\n", ret);
-+					goto bmi323_read_raw_error;
-+				}
-+
-+				ret = bmi323_read_u16(&data->bmi323, BMC150_BMI323_DATA_BASE_REG + (u8)(chan->scan_index), &raw_read);
-+				iio_device_release_direct_mode(indio_dev);
-+				if (ret != 0) {
-+					printk(KERN_CRIT "bmc150 bmi323_read_raw IIO_ANGL_VEL bmi323_read_u16 returned %d\n", ret);
-+					goto bmi323_read_raw_error;
-+				}
-+
-+				*val = sign_extend32(le16_to_cpu(raw_read), 15);
-+				bmi323_set_power_state(&data->bmi323, false);
-+				mutex_unlock(&data->bmi323.mutex);
-+				return IIO_VAL_INT;
-+
-+			default:
++	case IIO_CHAN_INFO_RAW: {
++		switch (chan->type) {
++		case IIO_TEMP:
++			if (iio_buffer_enabled(indio_dev)) {
++				ret = -EBUSY;
 +				goto bmi323_read_raw_error;
 +			}
-+		}
-+	case IIO_CHAN_INFO_OFFSET:
-+		{
-+			switch (chan->type) {
-+			case IIO_TEMP:
-+				*val = BMC150_BMI323_TEMPER_CENTER_VAL;
-+				*val2 = 0;
-+				mutex_unlock(&data->bmi323.mutex);
-+				return IIO_VAL_INT;
 +
-+			default:
-+				ret = -EINVAL;
++			was_sleep_modified =
++				bmi323_set_power_state(&data->bmi323, true);
++			if (was_sleep_modified != 0) {
++				ret = was_sleep_modified;
++				goto bmi323_read_raw_error_power;
++			}
++
++			ret = iio_device_claim_direct_mode(indio_dev);
++			if (ret != 0) {
++				printk(KERN_CRIT
++				       "bmc150 bmi323_read_raw IIO_TEMP iio_device_claim_direct_mode returned %d\n",
++				       ret);
 +				goto bmi323_read_raw_error;
 +			}
++
++			ret = bmi323_read_u16(
++				&data->bmi323,
++				BMC150_BMI323_TEMPERATURE_DATA_REG, &raw_read);
++			iio_device_release_direct_mode(indio_dev);
++			if (ret != 0) {
++				printk(KERN_CRIT
++				       "bmc150 bmi323_read_raw IIO_TEMP bmi323_read_u16 returned %d\n",
++				       ret);
++				goto bmi323_read_raw_error;
++			}
++
++			*val = sign_extend32(le16_to_cpu(raw_read), 15);
++			bmi323_set_power_state(&data->bmi323, false);
++			mutex_unlock(&data->bmi323.mutex);
++			return IIO_VAL_INT;
++
++		case IIO_ACCEL:
++			if (iio_buffer_enabled(indio_dev)) {
++				ret = -EBUSY;
++				goto bmi323_read_raw_error;
++			}
++
++			was_sleep_modified =
++				bmi323_set_power_state(&data->bmi323, true);
++			if (was_sleep_modified != 0) {
++				ret = was_sleep_modified;
++				goto bmi323_read_raw_error_power;
++			}
++
++			ret = iio_device_claim_direct_mode(indio_dev);
++			if (ret != 0) {
++				printk(KERN_CRIT
++				       "bmc150 bmi323_read_raw IIO_ACCEL iio_device_claim_direct_mode returned %d\n",
++				       ret);
++				goto bmi323_read_raw_error;
++			}
++
++			ret = bmi323_read_u16(&data->bmi323,
++					      BMC150_BMI323_DATA_BASE_REG +
++						      (u8)(chan->scan_index),
++					      &raw_read);
++			iio_device_release_direct_mode(indio_dev);
++			if (ret != 0) {
++				printk(KERN_CRIT
++				       "bmc150 bmi323_read_raw IIO_ACCEL bmi323_read_u16 returned %d\n",
++				       ret);
++				goto bmi323_read_raw_error;
++			}
++			*val = sign_extend32(le16_to_cpu(raw_read), 15);
++			bmi323_set_power_state(&data->bmi323, false);
++			mutex_unlock(&data->bmi323.mutex);
++			return IIO_VAL_INT;
++
++		case IIO_ANGL_VEL:
++			if (iio_buffer_enabled(indio_dev)) {
++				ret = -EBUSY;
++				goto bmi323_read_raw_error;
++			}
++
++			was_sleep_modified =
++				bmi323_set_power_state(&data->bmi323, true);
++			if (was_sleep_modified != 0) {
++				ret = was_sleep_modified;
++				goto bmi323_read_raw_error_power;
++			}
++
++			ret = iio_device_claim_direct_mode(indio_dev);
++			if (ret != 0) {
++				printk(KERN_CRIT
++				       "bmc150 bmi323_read_raw IIO_ANGL_VEL iio_device_claim_direct_mode returned %d\n",
++				       ret);
++				goto bmi323_read_raw_error;
++			}
++
++			ret = bmi323_read_u16(&data->bmi323,
++					      BMC150_BMI323_DATA_BASE_REG +
++						      (u8)(chan->scan_index),
++					      &raw_read);
++			iio_device_release_direct_mode(indio_dev);
++			if (ret != 0) {
++				printk(KERN_CRIT
++				       "bmc150 bmi323_read_raw IIO_ANGL_VEL bmi323_read_u16 returned %d\n",
++				       ret);
++				goto bmi323_read_raw_error;
++			}
++
++			*val = sign_extend32(le16_to_cpu(raw_read), 15);
++			bmi323_set_power_state(&data->bmi323, false);
++			mutex_unlock(&data->bmi323.mutex);
++			return IIO_VAL_INT;
++
++		default:
++			goto bmi323_read_raw_error;
 +		}
++	}
++	case IIO_CHAN_INFO_OFFSET: {
++		switch (chan->type) {
++		case IIO_TEMP:
++			*val = BMC150_BMI323_TEMPER_CENTER_VAL;
++			*val2 = 0;
++			mutex_unlock(&data->bmi323.mutex);
++			return IIO_VAL_INT;
++
++		default:
++			ret = -EINVAL;
++			goto bmi323_read_raw_error;
++		}
++	}
 +	case IIO_CHAN_INFO_SCALE:
 +		switch (chan->type) {
-+			case IIO_TEMP:
-+				{
-+					*val = 0;
-+					*val2 = BMC150_BMI323_TEMPER_LSB_PER_KELVIN_VAL;
++		case IIO_TEMP: {
++			*val = 0;
++			*val2 = BMC150_BMI323_TEMPER_LSB_PER_KELVIN_VAL;
++			mutex_unlock(&data->bmi323.mutex);
++			return IIO_VAL_FRACTIONAL;
++		}
++		case IIO_ACCEL: {
++			u8 *le_raw_read =
++				(u8 *)&data->bmi323.acc_conf_reg_value;
++			for (int s = 0; s < ARRAY_SIZE(bmi323_accel_scale_map);
++			     ++s) {
++				if (((le_raw_read[0]) & ((u16)0b01110000U)) ==
++				    (bmi323_accel_scale_map[s].hw_val)) {
++					*val = bmi323_accel_scale_map[s].val;
++					*val2 = bmi323_accel_scale_map[s].val2;
++
 +					mutex_unlock(&data->bmi323.mutex);
-+					return IIO_VAL_FRACTIONAL;
++					return bmi323_accel_scale_map[s]
++						.ret_type;
 +				}
-+			case IIO_ACCEL:
-+				{
-+					u8* le_raw_read = (u8*)&data->bmi323.acc_conf_reg_value;
-+					for (int s = 0; s < ARRAY_SIZE(bmi323_accel_scale_map); ++s) {
-+						if (((le_raw_read[0]) & ((u16)0b01110000U)) == (bmi323_accel_scale_map[s].hw_val)) {
-+							*val = bmi323_accel_scale_map[s].val;
-+							*val2 = bmi323_accel_scale_map[s].val2;
++			}
 +
-+							mutex_unlock(&data->bmi323.mutex);
-+							return bmi323_accel_scale_map[s].ret_type;
-+						}
-+					}
++			ret = -EINVAL;
++			goto bmi323_read_raw_error;
++		}
++		case IIO_ANGL_VEL: {
++			u8 *le_raw_read =
++				(u8 *)&data->bmi323.gyr_conf_reg_value;
++			for (int s = 0; s < ARRAY_SIZE(bmi323_gyro_scale_map);
++			     ++s) {
++				if (((le_raw_read[0]) & ((u16)0b01110000U)) ==
++				    (bmi323_gyro_scale_map[s].hw_val)) {
++					*val = bmi323_gyro_scale_map[s].val;
++					*val2 = bmi323_gyro_scale_map[s].val2;
 +
-+					ret = -EINVAL;
-+					goto bmi323_read_raw_error;
++					mutex_unlock(&data->bmi323.mutex);
++					return bmi323_gyro_scale_map[s].ret_type;
 +				}
-+			case IIO_ANGL_VEL:
-+				{
-+					u8* le_raw_read = (u8*)&data->bmi323.gyr_conf_reg_value;
-+					for (int s = 0; s < ARRAY_SIZE(bmi323_gyro_scale_map); ++s) {
-+						if (((le_raw_read[0]) & ((u16)0b01110000U)) == (bmi323_gyro_scale_map[s].hw_val)) {
-+							*val = bmi323_gyro_scale_map[s].val;
-+							*val2 = bmi323_gyro_scale_map[s].val2;
++			}
 +
-+							mutex_unlock(&data->bmi323.mutex);
-+							return bmi323_gyro_scale_map[s].ret_type;
-+						}
-+					}
-+
-+					ret = -EINVAL;
-+					goto bmi323_read_raw_error;
-+				}
-+			default:
-+				ret = -EINVAL;
-+				goto bmi323_read_raw_error;
++			ret = -EINVAL;
++			goto bmi323_read_raw_error;
++		}
++		default:
++			ret = -EINVAL;
++			goto bmi323_read_raw_error;
 +		}
 +	case IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY:
 +		switch (chan->type) {
-+			case IIO_ACCEL:
-+				{
-+					u8* le_raw_read = (u8*)&data->bmi323.acc_conf_reg_value;
-+					for (int s = 0; s < ARRAY_SIZE(bmi323_accel_odr_map); ++s) {
-+						if (((le_raw_read[0]) & ((u16)0x0FU)) == (bmi323_accel_odr_map[s].hw_val)) {
-+							/*
++		case IIO_ACCEL: {
++			u8 *le_raw_read =
++				(u8 *)&data->bmi323.acc_conf_reg_value;
++			for (int s = 0; s < ARRAY_SIZE(bmi323_accel_odr_map);
++			     ++s) {
++				if (((le_raw_read[0]) & ((u16)0x0FU)) ==
++				    (bmi323_accel_odr_map[s].hw_val)) {
++					/*
 +							 * from tha datasheed: -3dB cut-off frequency can be configured with the bit 7 of GYR_confm,
 +							 * also called acc_bw that can either be 0 or 1, where 1 means odr/4 and 0 means odr/2
 +							 */
-+							int freq_adj_idx = (((le_raw_read[0]) & ((u8)0x80U)) == (u8)0x00U) ? (s * 2) + 0 : (s * 2) + 1;
-+							*val = bmi323_accel_3db_freq_cutoff[freq_adj_idx].val;
-+							*val2 = bmi323_accel_3db_freq_cutoff[freq_adj_idx].val2;
++					int freq_adj_idx =
++						(((le_raw_read[0]) &
++						  ((u8)0x80U)) == (u8)0x00U) ?
++							(s * 2) + 0 :
++							(s * 2) + 1;
++					*val = bmi323_accel_3db_freq_cutoff
++						       [freq_adj_idx]
++							       .val;
++					*val2 = bmi323_accel_3db_freq_cutoff
++							[freq_adj_idx]
++								.val2;
 +
-+							mutex_unlock(&data->bmi323.mutex);
-+							return IIO_VAL_INT_PLUS_MICRO;
-+						}
-+					}
-+
-+					ret = -EINVAL;
-+					goto bmi323_read_raw_error;
-+				}
-+			case IIO_ANGL_VEL:
-+				{
-+					u8* le_raw_read = (u8*)&data->bmi323.gyr_conf_reg_value;
-+					for (int s = 0; s < ARRAY_SIZE(bmi323_gyro_odr_map); ++s) {
-+						if (((le_raw_read[0]) & ((u16)0x0FU)) == (bmi323_gyro_odr_map[s].hw_val)) {
-+							/*
-+							 * from tha datasheed: -3dB cut-off frequency can be configured with the bit 7 of GYR_confm,
-+							 * also called acc_bw that can either be 0 or 1, where 1 means odr/4 and 0 means odr/2
-+							 */
-+							int freq_adj_idx = (((le_raw_read[0]) & ((u8)0x80U)) == (u8)0x0000U) ? (s * 2) + 0 : (s * 2) + 1;
-+							*val = bmi323_gyro_3db_freq_cutoff[freq_adj_idx].val;
-+							*val2 = bmi323_gyro_3db_freq_cutoff[freq_adj_idx].val2;
-+
-+							mutex_unlock(&data->bmi323.mutex);
-+							return bmi323_gyro_3db_freq_cutoff[freq_adj_idx].ret_type;
-+						}
-+					}
-+
-+					ret = -EINVAL;
-+					goto bmi323_read_raw_error;
-+				}
-+			default:
-+			{
-+				ret = -EINVAL;
-+				goto bmi323_read_raw_error;
-+			}
-+		}
-+	case IIO_CHAN_INFO_SAMP_FREQ:
-+		switch (chan->type) {
-+			case IIO_TEMP:
-+				{
-+					was_sleep_modified = bmi323_set_power_state(&data->bmi323, true);
-+					if (was_sleep_modified != 0) {
-+						ret = was_sleep_modified;
-+						goto bmi323_read_raw_error_power;
-+					}
-+
-+					// while in normal or power mode the temperature sensur has a 50Hz sampling frequency
-+					*val = 50;
-+					*val2 = 0;
-+
-+					bmi323_set_power_state(&data->bmi323, false);
 +					mutex_unlock(&data->bmi323.mutex);
 +					return IIO_VAL_INT_PLUS_MICRO;
 +				}
-+			case IIO_ACCEL:
-+				{
-+					u8* le_raw_read = (u8*)&data->bmi323.acc_conf_reg_value;
-+					for (int s = 0; s < ARRAY_SIZE(bmi323_accel_odr_map); ++s) {
-+						if (((le_raw_read[0]) & ((u16)0x0FU)) == (bmi323_accel_odr_map[s].hw_val)) {
-+							*val = bmi323_accel_odr_map[s].val;
-+							*val2 = bmi323_accel_odr_map[s].val2;
++			}
 +
-+							mutex_unlock(&data->bmi323.mutex);
-+							return IIO_VAL_INT_PLUS_MICRO;
-+						}
-+					}
++			ret = -EINVAL;
++			goto bmi323_read_raw_error;
++		}
++		case IIO_ANGL_VEL: {
++			u8 *le_raw_read =
++				(u8 *)&data->bmi323.gyr_conf_reg_value;
++			for (int s = 0; s < ARRAY_SIZE(bmi323_gyro_odr_map);
++			     ++s) {
++				if (((le_raw_read[0]) & ((u16)0x0FU)) ==
++				    (bmi323_gyro_odr_map[s].hw_val)) {
++					/*
++							 * from tha datasheed: -3dB cut-off frequency can be configured with the bit 7 of GYR_confm,
++							 * also called acc_bw that can either be 0 or 1, where 1 means odr/4 and 0 means odr/2
++							 */
++					int freq_adj_idx =
++						(((le_raw_read[0]) &
++						  ((u8)0x80U)) == (u8)0x0000U) ?
++							(s * 2) + 0 :
++							(s * 2) + 1;
++					*val = bmi323_gyro_3db_freq_cutoff
++						       [freq_adj_idx]
++							       .val;
++					*val2 = bmi323_gyro_3db_freq_cutoff
++							[freq_adj_idx]
++								.val2;
 +
-+					ret = -EINVAL;
-+					goto bmi323_read_raw_error;
++					mutex_unlock(&data->bmi323.mutex);
++					return bmi323_gyro_3db_freq_cutoff
++						[freq_adj_idx]
++							.ret_type;
 +				}
-+			case IIO_ANGL_VEL:
-+				{
-+					u8* le_raw_read = (u8*)&data->bmi323.gyr_conf_reg_value;
-+					for (int s = 0; s < ARRAY_SIZE(bmi323_gyro_odr_map); ++s) {
-+						if (((le_raw_read[0]) & ((u16)0x0FU)) == (bmi323_gyro_odr_map[s].hw_val)) {
-+							*val = bmi323_gyro_odr_map[s].val;
-+							*val2 = bmi323_gyro_odr_map[s].val2;
++			}
 +
-+							mutex_unlock(&data->bmi323.mutex);
-+							return IIO_VAL_INT_PLUS_MICRO;
-+						}
-+					}
++			ret = -EINVAL;
++			goto bmi323_read_raw_error;
++		}
++		default: {
++			ret = -EINVAL;
++			goto bmi323_read_raw_error;
++		}
++		}
++	case IIO_CHAN_INFO_SAMP_FREQ:
++		switch (chan->type) {
++		case IIO_TEMP: {
 +
-+					ret = -EINVAL;
-+					goto bmi323_read_raw_error;
++			// while in normal or power mode the temperature sensur has a 50Hz sampling frequency
++			*val = 50;
++			*val2 = 0;
++
++			mutex_unlock(&data->bmi323.mutex);
++			return IIO_VAL_INT_PLUS_MICRO;
++		}
++		case IIO_ACCEL: {
++			u8 *le_raw_read =
++				(u8 *)&data->bmi323.acc_conf_reg_value;
++			for (int s = 0; s < ARRAY_SIZE(bmi323_accel_odr_map);
++			     ++s) {
++				if (((le_raw_read[0]) & ((u16)0x0FU)) ==
++				    (bmi323_accel_odr_map[s].hw_val)) {
++					*val = bmi323_accel_odr_map[s].val;
++					*val2 = bmi323_accel_odr_map[s].val2;
++
++					mutex_unlock(&data->bmi323.mutex);
++					return IIO_VAL_INT_PLUS_MICRO;
 +				}
-+			default:
-+				ret = -EINVAL;
-+				goto bmi323_read_raw_error;
++			}
++
++			ret = -EINVAL;
++			goto bmi323_read_raw_error;
++		}
++		case IIO_ANGL_VEL: {
++			u8 *le_raw_read =
++				(u8 *)&data->bmi323.gyr_conf_reg_value;
++			for (int s = 0; s < ARRAY_SIZE(bmi323_gyro_odr_map);
++			     ++s) {
++				if (((le_raw_read[0]) & ((u16)0x0FU)) ==
++				    (bmi323_gyro_odr_map[s].hw_val)) {
++					*val = bmi323_gyro_odr_map[s].val;
++					*val2 = bmi323_gyro_odr_map[s].val2;
++
++					mutex_unlock(&data->bmi323.mutex);
++					return IIO_VAL_INT_PLUS_MICRO;
++				}
++			}
++
++			ret = -EINVAL;
++			goto bmi323_read_raw_error;
++		}
++		default:
++			ret = -EINVAL;
++			goto bmi323_read_raw_error;
 +		}
 +	default:
 +		ret = -EINVAL;
@@ -1373,21 +1441,17 @@ index 110591804b4c..5ac25c344385 100644
 +}
 +
 +static int bmi323_write_raw(struct iio_dev *indio_dev,
-+				  struct iio_chan_spec const *chan,
-+				  int val, int val2, long mask)
++			    struct iio_chan_spec const *chan, int val, int val2,
++			    long mask)
 +{
 +	struct bmc150_accel_data *data = iio_priv(indio_dev);
 +	int ret = -EINVAL, was_sleep_modified = -1;
 +
-+	/*
-+	 * Once I got my hands on a device with IRQ pin connected (or I find otherwise a way to test triggers and interrupt code)
-+	 * I will need (for some parts) to use iio_buffer_enabled(indio_dev) to avoid mistakes
-+	 */
-+
 +	mutex_lock(&data->bmi323.mutex);
 +
 +	if ((data->bmi323.flags & BMI323_FLAGS_RESET_FAILED) != 0x00U) {
-+		dev_err(data->bmi323.dev, "bmi323 error: device has not being woken up correctly.");
++		dev_err(data->bmi323.dev,
++			"bmi323 error: device has not being woken up correctly.");
 +		mutex_unlock(&data->bmi323.mutex);
 +		return -EBUSY;
 +	}
@@ -1395,137 +1459,225 @@ index 110591804b4c..5ac25c344385 100644
 +	switch (mask) {
 +	case IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY:
 +		switch (chan->type) {
-+			
-+			default:
-+			{
-+				ret = -EINVAL;
-+				goto bmi323_write_raw_error;
-+			}
++		default: {
++			ret = -EINVAL;
++			goto bmi323_write_raw_error;
++		}
 +		}
 +	case IIO_CHAN_INFO_SAMP_FREQ:
 +		switch (chan->type) {
-+			case IIO_ACCEL:
-+				for (int s = 0; s < ARRAY_SIZE(bmi323_accel_odr_map); ++s) {
-+					if ((bmi323_accel_odr_map[s].val == val) && (bmi323_accel_odr_map[s].val2 == val2)) {
-+						u8* le_raw_read = (u8*)&data->bmi323.acc_conf_reg_value;
-+						le_raw_read[0] &= (u8)0b11110000U;
-+						le_raw_read[0] |= ((u8)bmi323_gyro_odr_map[s].hw_val);
++		case IIO_ACCEL:
++			if (iio_buffer_enabled(indio_dev)) {
++				ret = -EBUSY;
++				goto bmi323_write_raw_error;
++			}
 +
-+						was_sleep_modified = bmi323_set_power_state(&data->bmi323, true);
-+						if (was_sleep_modified != 0) {
-+							ret = was_sleep_modified;
-+							goto bmi323_write_raw_error_power;
-+						}
++			for (int s = 0; s < ARRAY_SIZE(bmi323_accel_odr_map);
++			     ++s) {
++				if ((bmi323_accel_odr_map[s].val == val) &&
++				    (bmi323_accel_odr_map[s].val2 == val2)) {
++					const u16 conf_backup =
++						data->bmi323.acc_conf_reg_value;
++					u8 *le_raw_read =
++						(u8 *)&data->bmi323
++							.acc_conf_reg_value;
++					le_raw_read[0] &= (u8)0b11110000U;
++					le_raw_read[0] |=
++						((u8)bmi323_gyro_odr_map[s]
++							 .hw_val);
 +
-+						ret = bmi323_write_u16(&data->bmi323, BMC150_BMI323_ACC_CONF_REG, data->bmi323.acc_conf_reg_value);
-+						if (ret != 0) {
-+							goto bmi323_write_raw_error;
-+						}
-+
-+						bmi323_set_power_state(&data->bmi323, false);
-+						mutex_unlock(&data->bmi323.mutex);
-+						return 0;
++					was_sleep_modified =
++						bmi323_set_power_state(
++							&data->bmi323, true);
++					if (was_sleep_modified != 0) {
++						ret = was_sleep_modified;
++						data->bmi323.acc_conf_reg_value =
++							conf_backup;
++						goto bmi323_write_raw_error_power;
 +					}
-+				}
 +
-+				ret = -EINVAL;
-+				goto bmi323_write_raw_error;
-+			case IIO_ANGL_VEL:
-+				for (int s = 0; s < ARRAY_SIZE(bmi323_gyro_odr_map); ++s) {
-+					if ((bmi323_gyro_odr_map[s].val == val) && (bmi323_gyro_odr_map[s].val2 == val2)) {
-+						u8* le_raw_read = (u8*)&data->bmi323.gyr_conf_reg_value;
-+						le_raw_read[0] &= (u8)0b11110000U;
-+						le_raw_read[0] |= ((u8)bmi323_gyro_odr_map[s].hw_val);
-+
-+						was_sleep_modified = bmi323_set_power_state(&data->bmi323, true);
-+						if (was_sleep_modified != 0) {
-+							ret = was_sleep_modified;
-+							goto bmi323_write_raw_error_power;
-+						}
-+
-+						ret = bmi323_write_u16(&data->bmi323, BMC150_BMI323_GYR_CONF_REG, data->bmi323.gyr_conf_reg_value);
-+						if (ret != 0) {
-+							goto bmi323_write_raw_error;
-+						}
-+
-+						bmi323_set_power_state(&data->bmi323, false);
-+						mutex_unlock(&data->bmi323.mutex);
-+						return 0;
++					ret = bmi323_write_u16(
++						&data->bmi323,
++						BMC150_BMI323_ACC_CONF_REG,
++						data->bmi323.acc_conf_reg_value);
++					if (ret != 0) {
++						data->bmi323.acc_conf_reg_value =
++							conf_backup;
++						goto bmi323_write_raw_error;
 +					}
++
++					data->bmi323.acc_odr_time_ns =
++						bmi323_accel_odr_map[s].time_ns;
++					bmi323_set_power_state(&data->bmi323,
++							       false);
++					mutex_unlock(&data->bmi323.mutex);
++					return 0;
 +				}
++			}
 +
-+				ret = -EINVAL;
++			ret = -EINVAL;
++			goto bmi323_write_raw_error;
++		case IIO_ANGL_VEL:
++			if (iio_buffer_enabled(indio_dev)) {
++				ret = -EBUSY;
 +				goto bmi323_write_raw_error;
++			}
 +
-+			/* Termometer also ends up here: its sampling frequency depends on the chip configuration and cannot be changed */
-+			default:
-+				ret = -EINVAL;
-+				goto bmi323_write_raw_error;
++			for (int s = 0; s < ARRAY_SIZE(bmi323_gyro_odr_map);
++			     ++s) {
++				if ((bmi323_gyro_odr_map[s].val == val) &&
++				    (bmi323_gyro_odr_map[s].val2 == val2)) {
++					const u16 conf_backup =
++						data->bmi323.gyr_conf_reg_value;
++					u8 *le_raw_read =
++						(u8 *)&data->bmi323
++							.gyr_conf_reg_value;
++					le_raw_read[0] &= (u8)0b11110000U;
++					le_raw_read[0] |=
++						((u8)bmi323_gyro_odr_map[s]
++							 .hw_val);
++
++					was_sleep_modified =
++						bmi323_set_power_state(
++							&data->bmi323, true);
++					if (was_sleep_modified != 0) {
++						ret = was_sleep_modified;
++						data->bmi323.gyr_conf_reg_value =
++							conf_backup;
++						goto bmi323_write_raw_error_power;
++					}
++
++					ret = bmi323_write_u16(
++						&data->bmi323,
++						BMC150_BMI323_GYR_CONF_REG,
++						data->bmi323.gyr_conf_reg_value);
++					if (ret != 0) {
++						data->bmi323.gyr_conf_reg_value =
++							conf_backup;
++						goto bmi323_write_raw_error;
++					}
++
++					data->bmi323.gyr_odr_time_ns =
++						bmi323_gyro_odr_map[s].time_ns;
++					bmi323_set_power_state(&data->bmi323,
++							       false);
++					mutex_unlock(&data->bmi323.mutex);
++					return 0;
++				}
++			}
++
++			ret = -EINVAL;
++			goto bmi323_write_raw_error;
++
++		/* Termometer also ends up here: its sampling frequency depends on the chip configuration and cannot be changed */
++		default:
++			ret = -EINVAL;
++			goto bmi323_write_raw_error;
 +		}
-+		
++
 +		break;
 +	case IIO_CHAN_INFO_SCALE:
 +		switch (chan->type) {
-+			case IIO_ACCEL:
-+				for (int s = 0; s < ARRAY_SIZE(bmi323_accel_scale_map); ++s) {
-+					if ((bmi323_accel_scale_map[s].val == val) && (bmi323_accel_scale_map[s].val2 == val2)) {
-+						u8* le_raw_read = (u8*)&data->bmi323.acc_conf_reg_value;
-+						le_raw_read[0] &= (u8)0b10001111U;
-+						le_raw_read[0] |= ((u8)bmi323_accel_scale_map[s].hw_val);
++		case IIO_ACCEL:
++			if (iio_buffer_enabled(indio_dev)) {
++				ret = -EBUSY;
++				goto bmi323_write_raw_error;
++			}
 +
-+						was_sleep_modified = bmi323_set_power_state(&data->bmi323, true);
-+						if (was_sleep_modified != 0) {
-+							ret = was_sleep_modified;
-+							goto bmi323_write_raw_error_power;
-+						}
++			for (int s = 0; s < ARRAY_SIZE(bmi323_accel_scale_map);
++			     ++s) {
++				if ((bmi323_accel_scale_map[s].val == val) &&
++				    (bmi323_accel_scale_map[s].val2 == val2)) {
++					u8 *le_raw_read =
++						(u8 *)&data->bmi323
++							.acc_conf_reg_value;
++					le_raw_read[0] &= (u8)0b10001111U;
++					le_raw_read[0] |=
++						((u8)bmi323_accel_scale_map[s]
++							 .hw_val);
 +
-+						ret = bmi323_write_u16(&data->bmi323, BMC150_BMI323_ACC_CONF_REG, data->bmi323.acc_conf_reg_value);
-+						if (ret != 0) {
-+							goto bmi323_write_raw_error;
-+						}
-+
-+						bmi323_set_power_state(&data->bmi323, false);
-+						mutex_unlock(&data->bmi323.mutex);
-+						return 0;
++					was_sleep_modified =
++						bmi323_set_power_state(
++							&data->bmi323, true);
++					if (was_sleep_modified != 0) {
++						ret = was_sleep_modified;
++						goto bmi323_write_raw_error_power;
 +					}
-+				}
 +
-+				dev_warn(data->bmi323.dev, "bmi323 error: accel scale val=%d,val2=%d unavailable: ignoring.", val, val2);
-+
-+				ret = -EINVAL;
-+				goto bmi323_write_raw_error;
-+			case IIO_ANGL_VEL:
-+				for (int s = 0; s < ARRAY_SIZE(bmi323_gyro_scale_map); ++s) {
-+					if ((bmi323_gyro_scale_map[s].val == val) && (bmi323_gyro_scale_map[s].val2 == val2)) {
-+						u8* le_raw_read = (u8*)&data->bmi323.gyr_conf_reg_value;
-+						le_raw_read[0] &= (u8)0b10001111U;
-+						le_raw_read[0] |= ((u8)bmi323_gyro_scale_map[s].hw_val);
-+
-+						was_sleep_modified = bmi323_set_power_state(&data->bmi323, true);
-+						if (was_sleep_modified != 0) {
-+							ret = was_sleep_modified;
-+							goto bmi323_write_raw_error_power;
-+						}
-+
-+						ret = bmi323_write_u16(&data->bmi323, BMC150_BMI323_GYR_CONF_REG, data->bmi323.acc_conf_reg_value);
-+						if (ret != 0) {
-+							goto bmi323_write_raw_error;
-+						}
-+
-+						bmi323_set_power_state(&data->bmi323, false);
-+						mutex_unlock(&data->bmi323.mutex);
-+						return 0;
++					ret = bmi323_write_u16(
++						&data->bmi323,
++						BMC150_BMI323_ACC_CONF_REG,
++						data->bmi323.acc_conf_reg_value);
++					if (ret != 0) {
++						goto bmi323_write_raw_error;
 +					}
++
++					bmi323_set_power_state(&data->bmi323,
++							       false);
++					mutex_unlock(&data->bmi323.mutex);
++					return 0;
 +				}
++			}
 +
-+				dev_warn(data->bmi323.dev, "bmi323 error: gyro scale val=%d,val2=%d unavailable: ignoring.", val, val2);
++			dev_warn(
++				data->bmi323.dev,
++				"bmi323 error: accel scale val=%d,val2=%d unavailable: ignoring.",
++				val, val2);
 +
-+				ret = -EINVAL;
++			ret = -EINVAL;
++			goto bmi323_write_raw_error;
++		case IIO_ANGL_VEL:
++			if (iio_buffer_enabled(indio_dev)) {
++				ret = -EBUSY;
 +				goto bmi323_write_raw_error;
++			}
 +
-+			default:
-+				ret = -EINVAL;
-+				goto bmi323_write_raw_error;
++			for (int s = 0; s < ARRAY_SIZE(bmi323_gyro_scale_map);
++			     ++s) {
++				if ((bmi323_gyro_scale_map[s].val == val) &&
++				    (bmi323_gyro_scale_map[s].val2 == val2)) {
++					u8 *le_raw_read =
++						(u8 *)&data->bmi323
++							.gyr_conf_reg_value;
++					le_raw_read[0] &= (u8)0b10001111U;
++					le_raw_read[0] |=
++						((u8)bmi323_gyro_scale_map[s]
++							 .hw_val);
++
++					was_sleep_modified =
++						bmi323_set_power_state(
++							&data->bmi323, true);
++					if (was_sleep_modified != 0) {
++						ret = was_sleep_modified;
++						goto bmi323_write_raw_error_power;
++					}
++
++					ret = bmi323_write_u16(
++						&data->bmi323,
++						BMC150_BMI323_GYR_CONF_REG,
++						data->bmi323.acc_conf_reg_value);
++					if (ret != 0) {
++						goto bmi323_write_raw_error;
++					}
++
++					bmi323_set_power_state(&data->bmi323,
++							       false);
++					mutex_unlock(&data->bmi323.mutex);
++					return 0;
++				}
++			}
++
++			dev_warn(
++				data->bmi323.dev,
++				"bmi323 error: gyro scale val=%d,val2=%d unavailable: ignoring.",
++				val, val2);
++
++			ret = -EINVAL;
++			goto bmi323_write_raw_error;
++
++		default:
++			ret = -EINVAL;
++			goto bmi323_write_raw_error;
 +		}
 +
 +	default:
@@ -1544,9 +1696,8 @@ index 110591804b4c..5ac25c344385 100644
 +}
 +
 +static int bmi323_read_avail(struct iio_dev *indio_dev,
-+			     struct iio_chan_spec const *chan,
-+			     const int **vals, int *type, int *length,
-+			     long mask)
++			     struct iio_chan_spec const *chan, const int **vals,
++			     int *type, int *length, long mask)
 +{
 +	switch (mask) {
 +	case IIO_CHAN_INFO_SCALE:
@@ -1575,82 +1726,269 @@ index 110591804b4c..5ac25c344385 100644
 +}
 +
 +static const struct iio_info bmi323_accel_info = {
-+	.read_raw		= bmi323_read_raw,
-+	.write_raw		= bmi323_write_raw,
-+	.read_avail		= bmi323_read_avail,
++	.read_raw = bmi323_read_raw,
++	.write_raw = bmi323_write_raw,
++	.read_avail = bmi323_read_avail,
++	//.hwfifo_flush_to_buffer	= bmi323_fifo_flush,
 +};
 +
++static int bmi323_fifo_flush(struct iio_dev *indio_dev)
++{
++	struct bmc150_accel_data *data = iio_priv(indio_dev);
++	int ret;
 +
-+/**
-+ * iio_simple_dummy_trigger_h() - the trigger handler function
-+ * @irq: the interrupt number
-+ * @p: private data - always a pointer to the poll func.
-+ *
-+ * This is the guts of buffered capture. On a trigger event occurring,
-+ * if the pollfunc is attached then this handler is called as a threaded
-+ * interrupt (and hence may sleep). It is responsible for grabbing data
-+ * from the device and pushing it into the associated buffer.
-+ *
-+ * At the moment data is faked as what the device would report in a
-+ * "overread" FIFO buffer situation.
-+ */
++	ret = bmi323_write_u16(&data->bmi323, 0x37, cpu_to_le16(0x01));
++
++	return ret;
++}
++
++static const u16 stub_value = 0x8000;
++
++#define ADVANCE_AT_REQ_OR_AVAIL(req, avail, dst, dst_offset, src, src_offset) \
++	if (req) {                                                            \
++		if (gyr_avail) {                                              \
++			memcpy((void *)(dst + dst_offset),                    \
++			       (const void *)(src + src_offset), 2);          \
++			src_offset += 2;                                      \
++		} else {                                                      \
++			memcpy((void *)(dst + dst_offset),                    \
++			       (const void *)((const u8 *)(&stub_value)), 2); \
++		}                                                             \
++		dst_offset += 2;                                              \
++	} else {                                                              \
++		if (avail) {                                                  \
++			src_offset += 2;                                      \
++		}                                                             \
++	}
++
 +static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
 +{
++	printk(KERN_WARNING "bmi323 executed iio_bmi323_trigger_h");
++
 +	struct iio_poll_func *pf = p;
 +	struct iio_dev *indio_dev = pf->indio_dev;
-+	u16 *data;
-+	//struct bmc150_accel_data *indio_data = iio_priv(indio_dev);
++	struct bmc150_accel_data *indio_data = iio_priv(indio_dev);
 +
-+	data = kmalloc(indio_dev->scan_bytes, GFP_KERNEL);
-+	if (!data)
++	mutex_lock(&indio_data->bmi323.mutex);
++
++	const bool temp_avail = ((indio_data->bmi323.fifo_conf_reg_value &
++				  (cpu_to_le16(0b0000100000000000))) != 0);
++	const bool gyr_avail = ((indio_data->bmi323.fifo_conf_reg_value &
++				 (cpu_to_le16(0b0000010000000000))) != 0);
++	const bool acc_avail = ((indio_data->bmi323.fifo_conf_reg_value &
++				 (cpu_to_le16(0b0000001000000000))) != 0);
++	const bool time_avail = ((indio_data->bmi323.fifo_conf_reg_value &
++				  (cpu_to_le16(0b0000000100000000))) != 0);
++
++	/* Calculate the number of bytes for a frame */
++	const u16 frames_aggregate_size_in_words =
++		/* 2 * */ ((temp_avail ? 1 : 0) + (gyr_avail ? 3 : 0) +
++			   (acc_avail ? 3 : 0) + (time_avail ? 1 : 0));
++
++	u16 available_words = 0;
++	const int available_words_read_res = bmi323_read_u16(
++		&indio_data->bmi323, BMC150_BMI323_FIFO_FILL_LEVEL_REG,
++		&available_words);
++	if (available_words_read_res != 0) {
 +		goto bmi323_irq_done;
++	}
++
++	const u16 available_frame_aggregates = (le16_to_cpu(available_words)) /
++					       (frames_aggregate_size_in_words);
++
++	const s64 current_timestamp_ns = iio_get_time_ns(indio_dev);
++	const s64 fifo_frame_time_ns =
++		indio_data->bmi323.fifo_frame_time_diff_ns;
++	const s64 first_sample_timestamp_ns =
++		current_timestamp_ns -
++		(fifo_frame_time_ns * (s64)(available_frame_aggregates));
++
++	/* This can hold one full block */
++	u8 temp_data[16];
++
++	/* This is fifo data as read from the sensor */
++	u8 fifo_data[32];
 +
 +	/*
-+	CHANNEL			scan_index
-+	==========================
-+	
-+	ACCEL_X				0
-+	ACCEL_Y				1
-+	ACCEL_Y				2
-+	GYRO_X				3
-+	GYRO_Y				4
-+	GYRO_Z				5
-+	TEMP				6
-+	TIMESTAMP			?
++	| CHANNEL		|	scan_index
++	|============================
++	|				|			|
++	| ACCEL_X		|		0	|
++	| ACCEL_Y		|		1	|
++	| ACCEL_Y		|		2	|
++	| GYRO_X		|		3	|
++	| GYRO_Y		|		4	|
++	| GYRO_Z		|		5	|
++	| TEMP			|		6	|
++	| TIMESTAMP		|		?	|
 +	*/
++	bool accel_x_requested = false;
++	bool accel_y_requested = false;
++	bool accel_z_requested = false;
++	bool gyro_x_requested = false;
++	bool gyro_y_requested = false;
++	bool gyro_z_requested = false;
++	bool temp_requested = false;
 +
-+	/*int ret = 0;
-+	u8 read_bytes[] = { 0xFF, 0xFF, 0xFF, 0xFF};
-+	int d_idx = 0;
-+	u8 reg = 0x03;
-+	for (u32 i = 0; i < indio_dev->masklength; ++i) {
-+		if (((0x0001U << i) & (*indio_dev->active_scan_mask)) != 0) {
-+			
-+			struct i2c_client*  i2c_dev = indio_data->bmi323.i2c_client;
-+			if (i2c_dev != NULL) {
-+				ret = i2c_smbus_read_i2c_block_data(i2c_dev, reg + i, sizeof(read_bytes), &read_bytes[0]);
-+				if (ret != 4) {
-+					goto bmi323_irq_done;
++	int j = 0;
++	for_each_set_bit(j, indio_dev->active_scan_mask,
++			 indio_dev->masklength) {
++		switch (j) {
++		case 0:
++			accel_x_requested = true;
++			break;
++		case 1:
++			accel_y_requested = true;
++			break;
++		case 2:
++			accel_z_requested = true;
++			break;
++		case 3:
++			gyro_x_requested = true;
++			break;
++		case 4:
++			gyro_y_requested = true;
++			break;
++		case 5:
++			gyro_z_requested = true;
++			break;
++		case 6:
++			temp_requested = true;
++			break;
++		default:
++			break;
++		}
++	}
++
++	u16 current_fifo_buffer_offset_bytes = 0;
++	for (u16 f = 0; f < available_frame_aggregates; ++f) {
++		u16 current_sample_buffer_offset = 0;
++
++		/* Read data from the raw device */
++		if (indio_data->bmi323.i2c_client != NULL) {
++			const int bytes_to_read =
++				2 + (2 * frames_aggregate_size_in_words);
++			int read_block_ret = i2c_smbus_read_i2c_block_data(
++				indio_data->bmi323.i2c_client,
++				BMC150_BMI323_FIFO_DATA_REG, bytes_to_read,
++				&fifo_data[0]);
++			if (read_block_ret < bytes_to_read) {
++				dev_warn(
++					&indio_data->bmi323.i2c_client->dev,
++					"bmi323: i2c_smbus_read_i2c_block_data wrong return: expected %d bytes, %d arrived. Doing what is possible with recovered data.\n",
++					bytes_to_read, read_block_ret);
++
++				/* at this point FIFO buffer must be flushed to avoid interpreting data incorrectly the next trigger */
++				const int flush_res =
++					bmi323_fifo_flush(indio_dev);
++				if (flush_res != 0) {
++					dev_err(&indio_data->bmi323.i2c_client
++							 ->dev,
++						"bmi323: Could not flush FIFO (%d). Following buffer data might be corrupted.\n",
++						flush_res);
 +				}
 +
-+				data[d_idx++] = ((u16)read_bytes[2] << (u16)8U) | ((u16)read_bytes[3]);
-+			} else {
-+				// TODO: what about SPI?
 +				goto bmi323_irq_done;
 +			}
++
++			/* Discard 2-bytes dummy data from I2C */
++			current_fifo_buffer_offset_bytes = 2;
++		} else if (indio_data->bmi323.spi_client != NULL) {
++			printk(KERN_CRIT
++			       "bmi323: SPI interface is not yet implemented.\n");
++
++			/*
++			* To whoever may need this: implementing this should be straightforward:
++			* it's specular to the i2c part.
++			*/
++
++			/* Discard 1-byte dummy data from SPI */
++			current_fifo_buffer_offset_bytes = 1;
++
++			goto bmi323_irq_done;
 +		}
-+	}*/
 +
-+	int j = 0, i = 0;
-+	for_each_set_bit(j, indio_dev->active_scan_mask, indio_dev->masklength)
-+		data[i++] = cpu_to_le16(0x8000);
++		ADVANCE_AT_REQ_OR_AVAIL(accel_x_requested, acc_avail,
++					(u8 *)&temp_data[0],
++					current_sample_buffer_offset,
++					(u8 *)&fifo_data[0],
++					current_fifo_buffer_offset_bytes);
++		ADVANCE_AT_REQ_OR_AVAIL(accel_y_requested, acc_avail,
++					(u8 *)&temp_data[0],
++					current_sample_buffer_offset,
++					(u8 *)&fifo_data[0],
++					current_fifo_buffer_offset_bytes);
++		ADVANCE_AT_REQ_OR_AVAIL(accel_z_requested, acc_avail,
++					(u8 *)&temp_data[0],
++					current_sample_buffer_offset,
++					(u8 *)&fifo_data[0],
++					current_fifo_buffer_offset_bytes);
++		ADVANCE_AT_REQ_OR_AVAIL(gyro_x_requested, gyr_avail,
++					(u8 *)&temp_data[0],
++					current_sample_buffer_offset,
++					(u8 *)&fifo_data[0],
++					current_fifo_buffer_offset_bytes);
++		ADVANCE_AT_REQ_OR_AVAIL(gyro_y_requested, gyr_avail,
++					(u8 *)&temp_data[0],
++					current_sample_buffer_offset,
++					(u8 *)&fifo_data[0],
++					current_fifo_buffer_offset_bytes);
++		ADVANCE_AT_REQ_OR_AVAIL(gyro_z_requested, gyr_avail,
++					(u8 *)&temp_data[0],
++					current_sample_buffer_offset,
++					(u8 *)&fifo_data[0],
++					current_fifo_buffer_offset_bytes);
++		ADVANCE_AT_REQ_OR_AVAIL(temp_requested, temp_avail,
++					(u8 *)&temp_data[0],
++					current_sample_buffer_offset,
++					(u8 *)&fifo_data[0],
++					current_fifo_buffer_offset_bytes);
 +
-+	iio_push_to_buffers_with_timestamp(indio_dev, data,
-+					   iio_get_time_ns(indio_dev));
++#ifdef BMC150_BMI232_DEBUG_EN
++		/* The following is code only used for debugging */
++		u16 timestamp = 0;
++		if (time_avail) {
++			memcpy((u8 *)&timestamp,
++			       (const u8
++					*)(&fifo_data
++						   [current_fifo_buffer_offset_bytes]),
++			       2);
++			current_fifo_buffer_offset_bytes += 2;
++		}
 +
-+	kfree(data);
++		u16 *debg = (u16 *)&temp_data[0];
++		if (!time_avail) {
++			printk(KERN_WARNING
++			       "bmi323 pushing to buffer %d/%d -- accel: %d %d %d gyro: %d %d %d",
++			       (int)(f + 1), (int)available_frame_aggregates,
++			       (int)(*((s16 *)&debg[0])),
++			       (int)(*((s16 *)&debg[1])),
++			       (int)(*((s16 *)&debg[2])),
++			       (int)(*((s16 *)&debg[3])),
++			       (int)(*((s16 *)&debg[4])),
++			       (int)(*((s16 *)&debg[5])));
++		} else {
++			printk(KERN_WARNING
++			       "bmi323 pushing to buffer %d/%d -- time: %d accel: %d %d %d gyro: %d %d %d",
++			       (int)(f + 1), (int)available_frame_aggregates,
++			       (int)timestamp, (int)(*((s16 *)&debg[0])),
++			       (int)(*((s16 *)&debg[1])),
++			       (int)(*((s16 *)&debg[2])),
++			       (int)(*((s16 *)&debg[3])),
++			       (int)(*((s16 *)&debg[4])),
++			       (int)(*((s16 *)&debg[5])));
++		}
++#endif
++
++		iio_push_to_buffers_with_timestamp(
++			indio_dev, &temp_data[0],
++			first_sample_timestamp_ns +
++				(fifo_frame_time_ns * (s64)j));
++	}
 +
 +bmi323_irq_done:
++	mutex_unlock(&indio_data->bmi323.mutex);
++
 +	/*
 +	 * Tell the core we are done with this trigger and ready for the
 +	 * next one.
@@ -1660,16 +1998,34 @@ index 110591804b4c..5ac25c344385 100644
 +	return IRQ_HANDLED;
 +}
 +
++int bmi323_set_trigger_state(struct iio_trigger *trig, bool state)
++{
++	return 0;
++}
++
++/*
++// The following is meant to be used in a IRQ-enabled hardware
++static  const struct iio_trigger_ops time_trigger_ops = {
++    .set_trigger_state = &bmi323_set_trigger_state,
++    //.reenable = NULL,
++    .validate_device = &iio_trigger_validate_own_device,
++};
++*/
++
 +/*
 + * A very basic scan mask: everything can work in conjunction with everything else so no need to worry about
 + * managing conbinations of mutually exclusive data sources...
 + */
 +static const unsigned long bmi323_accel_scan_masks[] = {
-+					BIT(BMI323_ACCEL_AXIS_X) | BIT(BMI323_ACCEL_AXIS_Y) | BIT(BMI323_ACCEL_AXIS_Z) | BIT(BMI323_GYRO_AXIS_X) | BIT(BMI323_GYRO_AXIS_Y) | BIT(BMI323_GYRO_AXIS_Z) | BIT(BMI323_TEMP),
-+					0};
++	BIT(BMI323_ACCEL_AXIS_X) | BIT(BMI323_ACCEL_AXIS_Y) |
++		BIT(BMI323_ACCEL_AXIS_Z) | BIT(BMI323_GYRO_AXIS_X) |
++		BIT(BMI323_GYRO_AXIS_Y) |
++		BIT(BMI323_GYRO_AXIS_Z) /*| BIT(BMI323_TEMP)*/,
++	0
++};
 +
-+int bmi323_iio_init(struct iio_dev *indio_dev) {
-+	const struct iio_dev_attr **fifo_attrs = NULL;
++int bmi323_iio_init(struct iio_dev *indio_dev)
++{
 +	struct bmc150_accel_data *data = iio_priv(indio_dev);
 +	struct irq_data *irq_desc = NULL;
 +
@@ -1683,34 +2039,52 @@ index 110591804b4c..5ac25c344385 100644
 +
 +	int ret = 0;
 +
++	/* change to 8 for a default 200Hz sampling rate */
++	const int gyr_odr_conf_idx = 7;
++	const int acc_odr_conf_idx = 7;
++
 +	mutex_init(&data->bmi323.mutex);
 +
++	data->bmi323.acc_odr_time_ns =
++		bmi323_accel_odr_map[acc_odr_conf_idx].time_ns;
++	data->bmi323.gyr_odr_time_ns =
++		bmi323_gyro_odr_map[gyr_odr_conf_idx].time_ns;
++
 +	// FIFO enabled for gyro, accel and temp. Overwrite older samples.
-+	data->bmi323.fifo_conf_reg_value = cpu_to_le16((u16)0x0E00U);
++	data->bmi323.fifo_conf_reg_value = cpu_to_le16((u16)0x0F00U);
++	//data->bmi323.fifo_conf_reg_value = cpu_to_le16((u16)0x0E00U);
++	//data->bmi323.fifo_conf_reg_value = cpu_to_le16((u16)0x0600U); // working
 +
 +	// now set the (default) normal mode...
 +	// normal mode: 0x4000
 +	// no averaging: 0x0000
-+	data->bmi323.acc_conf_reg_value = cpu_to_le16(0x4000 | ((u16)BMC150_BMI323_ACCEL_RANGE_2_VAL << (u16)4U) | ((u16)BMC150_BMI323_ACCEL_ODR_100_VAL));
-+	
++	data->bmi323.acc_conf_reg_value = cpu_to_le16(
++		0x4000 | ((u16)BMC150_BMI323_ACCEL_RANGE_2_VAL << (u16)4U) |
++		((u16)bmi323_accel_odr_map[acc_odr_conf_idx].hw_val));
++
 +	// now set the (default) normal mode...
 +	// normal mode: 0x4000
 +	// no averaging: 0x0000
 +	// filtering to ODR/2: 0x0000
-+	data->bmi323.gyr_conf_reg_value = cpu_to_le16(0x4000 | ((u16)BMC150_BMI323_GYRO_RANGE_125_VAL << (u16)4U) | ((u16)BMC150_BMI323_ACCEL_ODR_100_VAL));
++	data->bmi323.gyr_conf_reg_value = cpu_to_le16(
++		0x4000 | ((u16)BMC150_BMI323_GYRO_RANGE_125_VAL << (u16)4U) |
++		((u16)bmi323_gyro_odr_map[gyr_odr_conf_idx].hw_val));
 +
 +	// the datasheet states that FIFO buffer MUST be enabled before enabling any sensor
-+	ret = bmi323_write_u16(&data->bmi323, BMC150_BMI323_FIFO_CONF_REG, data->bmi323.fifo_conf_reg_value);
++	ret = bmi323_write_u16(&data->bmi323, BMC150_BMI323_FIFO_CONF_REG,
++			       data->bmi323.fifo_conf_reg_value);
 +	if (ret != 0) {
 +		return -1;
 +	}
 +
-+	ret = bmi323_write_u16(&data->bmi323, BMC150_BMI323_ACC_CONF_REG, data->bmi323.acc_conf_reg_value);
++	ret = bmi323_write_u16(&data->bmi323, BMC150_BMI323_ACC_CONF_REG,
++			       data->bmi323.acc_conf_reg_value);
 +	if (ret != 0) {
 +		return -1;
 +	}
 +
-+	ret = bmi323_write_u16(&data->bmi323, BMC150_BMI323_GYR_CONF_REG, data->bmi323.gyr_conf_reg_value);
++	ret = bmi323_write_u16(&data->bmi323, BMC150_BMI323_GYR_CONF_REG,
++			       data->bmi323.gyr_conf_reg_value);
 +	if (ret != 0) {
 +		return -2;
 +	}
@@ -1724,13 +2098,30 @@ index 110591804b4c..5ac25c344385 100644
 +	indio_dev->label = "bmi323-accel_base";
 +
 +	if (data->bmi323.irq > 0) {
-+		dev_info(data->bmi323.dev, "IRQ pin reported as connected: %d", data->bmi323.irq);
++		dev_info(data->bmi323.dev, "IRQ pin reported as connected: %d",
++			 data->bmi323.irq);
 +
 +		irq_desc = irq_get_irq_data(data->bmi323.irq);
 +		if (!irq_desc) {
-+			dev_err(data->bmi323.dev, "Could not find IRQ %d. ignoring it.\n", data->bmi323.irq);
++			dev_err(data->bmi323.dev,
++				"Could not find IRQ %d. ignoring it.\n",
++				data->bmi323.irq);
 +			goto bmi323_iio_init_missing_irq_pin;
 +		}
++
++		//data->bmi323.trig[0] = devm_iio_trigger_alloc(data->bmi323.dev, "trig-fifo_full-%s-%d", indio_dev->name, iio_device_id(indio_dev));
++		//if (data->bmi323.trig[0] == NULL) {
++		//	ret = -ENOMEM;
++		//	goto bmi323_iio_init_err_trigger_unregister;
++		//}
++		//
++		//data->bmi323.trig[0]->ops = &time_trigger_ops;
++		//iio_trigger_set_drvdata(data->bmi323.trig[0], indio_dev);
++		//ret = devm_iio_trigger_register(data->bmi323.dev, data->bmi323.trig[0]);
++		//if (ret) {
++		//	dev_err(data->bmi323.dev, "iio trigger register failed\n");
++		//	goto bmi323_iio_init_err_trigger_unregister;
++		//}
 +
 +		/*
 +		 * register triggers BEFORE buffer setup so that they are cleared
@@ -1743,34 +2134,42 @@ index 110591804b4c..5ac25c344385 100644
 +		/* here resume operation with the module part common to irq and non-irq enabled code. */
 +		goto bmi323_iio_init_common_irq_and_not_irq;
 +	}
-+	
++
 +bmi323_iio_init_missing_irq_pin:
-+	dev_info(data->bmi323.dev, "IRQ pin NOT connected (irq=%d). Will continue normally without triggers.", data->bmi323.irq);
++	dev_info(
++		data->bmi323.dev,
++		"IRQ pin NOT connected (irq=%d). Will continue normally without triggers.",
++		data->bmi323.irq);
 +
 +bmi323_iio_init_common_irq_and_not_irq:
++
 +	/* Once orientation matrix is implemented switch this to iio_triggered_buffer_setup_ext. */
-+	ret = iio_triggered_buffer_setup(indio_dev, NULL,
-+					  iio_bmi323_trigger_h,
-+					  &bmi323_buffer_ops);
++	ret = iio_triggered_buffer_setup(indio_dev, &iio_pollfunc_store_time,
++					 iio_bmi323_trigger_h,
++					 &bmi323_buffer_ops);
 +	if (ret < 0) {
-+		dev_err(data->bmi323.dev, "Failed: iio triggered buffer setup: %d\n", ret);
++		dev_err(data->bmi323.dev,
++			"Failed: iio triggered buffer setup: %d\n", ret);
 +		goto bmi323_iio_init_err_trigger_unregister;
 +	}
 +
 +	ret = pm_runtime_set_active(data->bmi323.dev);
 +	if (ret) {
-+		dev_err(data->bmi323.dev, "bmi323 unable to initialize runtime PD: pm_runtime_set_active returned %d\n", ret);
++		dev_err(data->bmi323.dev,
++			"bmi323 unable to initialize runtime PD: pm_runtime_set_active returned %d\n",
++			ret);
 +		goto bmi323_iio_init_err_buffer_cleanup;
 +	}
 +
-+	pm_runtime_enable(data->bmi323.dev);dev_err(data->bmi323.dev, "bmi323 pm_runtime_set_autosuspend_delay\n");
++	pm_runtime_enable(data->bmi323.dev);
 +	pm_runtime_set_autosuspend_delay(data->bmi323.dev,
 +					 BMC150_BMI323_AUTO_SUSPEND_DELAY_MS);
 +	pm_runtime_use_autosuspend(data->bmi323.dev);
 +
 +	ret = iio_device_register(indio_dev);
 +	if (ret < 0) {
-+		dev_err(data->bmi323.dev, "bmi323 unable to register iio device: %d\n", ret);
++		dev_err(data->bmi323.dev,
++			"bmi323 unable to register iio device: %d\n", ret);
 +		goto bmi323_iio_init_err_pm_cleanup;
 +	}
 +
@@ -1789,14 +2188,18 @@ index 110591804b4c..5ac25c344385 100644
 +	 * This is just a placeholder until I can get my hands on a bmi323
 +	 * device that has the IRQ pin actually connected to the CPU.
 +	 */
++	//if (data->bmi323.trig[0] != NULL) {
++	//	iio_trigger_unregister(data->bmi323.trig[0]);
++	//}
 +
 +	return ret;
 +}
 +EXPORT_SYMBOL_NS_GPL(bmi323_iio_init, IIO_BMC150);
 +
-+void bmi323_iio_deinit(struct iio_dev *indio_dev) {
++void bmi323_iio_deinit(struct iio_dev *indio_dev)
++{
 +	struct bmc150_accel_data *data = iio_priv(indio_dev);
-+	struct device* dev = bmi323_get_managed_device(&data->bmi323);
++	struct device *dev = bmi323_get_managed_device(&data->bmi323);
 +
 +	iio_device_unregister(indio_dev);
 +
@@ -1807,15 +2210,15 @@ index 110591804b4c..5ac25c344385 100644
 +	iio_triggered_buffer_cleanup(indio_dev);
 +
 +	//iio_device_free(indio_dev); // this isn't done in the bmg160 driver nor in other drivers so I guess I shouldn't do it too
-+	
++
 +	mutex_unlock(&data->bmi323.mutex);
 +	bmi323_chip_rst(&data->bmi323);
 +	mutex_unlock(&data->bmi323.mutex);
 +}
 +EXPORT_SYMBOL_NS_GPL(bmi323_iio_deinit, IIO_BMC150);
 +
- #ifdef CONFIG_PM_SLEEP
- static int bmc150_accel_suspend(struct device *dev)
++#ifdef CONFIG_PM_SLEEP
++static int bmc150_accel_suspend(struct device *dev)
  {
  	struct iio_dev *indio_dev = dev_get_drvdata(dev);
  	struct bmc150_accel_data *data = iio_priv(indio_dev);
@@ -1824,25 +2227,27 @@ index 110591804b4c..5ac25c344385 100644
 +		int ret;
 +
 +		//dev_warn(dev, "bmi323 suspending driver...");
-+		
++
 +		// here push the register GYRO & ACCEL configuration and issue a reset so that chip goes to sleep mode (the default one after a reset)
 +		mutex_unlock(&data->bmi323.mutex);
 +
 +		ret = bmi323_chip_rst(&data->bmi323);
 +		mutex_unlock(&data->bmi323.mutex);
 +		if (ret != 0) {
-+			dev_err(dev, "bmi323 error in suspend on bmi323_chip_rst: %d\n", ret);
++			dev_err(dev,
++				"bmi323 error in suspend on bmi323_chip_rst: %d\n",
++				ret);
 +			data->bmi323.flags |= BMI323_FLAGS_RESET_FAILED;
 +			return -EAGAIN;
 +		}
-+		
++
 +		return 0;
 +	}
 +
  	mutex_lock(&data->mutex);
  	bmc150_accel_set_mode(data, BMC150_ACCEL_SLEEP_MODE_SUSPEND, 0);
  	mutex_unlock(&data->mutex);
-@@ -1844,6 +3594,56 @@ static int bmc150_accel_resume(struct device *dev)
+@@ -1844,6 +4005,63 @@ static int bmc150_accel_resume(struct device *dev)
  	struct iio_dev *indio_dev = dev_get_drvdata(dev);
  	struct bmc150_accel_data *data = iio_priv(indio_dev);
  
@@ -1858,23 +2263,30 @@ index 110591804b4c..5ac25c344385 100644
 +		if ((data->bmi323.flags & BMI323_FLAGS_RESET_FAILED) != 0x00U) {
 +			ret = bmi323_chip_rst(&data->bmi323);
 +			if (ret == 0) {
-+				data->bmi323.flags &= ~BMI323_FLAGS_RESET_FAILED;
++				data->bmi323.flags &=
++					~BMI323_FLAGS_RESET_FAILED;
 +			} else {
 +				goto bmi323_bmc150_accel_resume_terminate;
 +			}
 +		}
-+		
-+		ret = bmi323_write_u16(&data->bmi323, BMC150_BMI323_FIFO_CONF_REG, data->bmi323.fifo_conf_reg_value);
++
++		ret = bmi323_write_u16(&data->bmi323,
++				       BMC150_BMI323_FIFO_CONF_REG,
++				       data->bmi323.fifo_conf_reg_value);
 +		if (ret != 0) {
 +			goto bmi323_bmc150_accel_resume_terminate;
 +		}
 +
-+		ret = bmi323_write_u16(&data->bmi323, BMC150_BMI323_GYR_CONF_REG, data->bmi323.gyr_conf_reg_value);
++		ret = bmi323_write_u16(&data->bmi323,
++				       BMC150_BMI323_GYR_CONF_REG,
++				       data->bmi323.gyr_conf_reg_value);
 +		if (ret != 0) {
 +			goto bmi323_bmc150_accel_resume_terminate;
 +		}
 +
-+		ret = bmi323_write_u16(&data->bmi323, BMC150_BMI323_ACC_CONF_REG, data->bmi323.acc_conf_reg_value);
++		ret = bmi323_write_u16(&data->bmi323,
++				       BMC150_BMI323_ACC_CONF_REG,
++				       data->bmi323.acc_conf_reg_value);
 +		if (ret != 0) {
 +			goto bmi323_bmc150_accel_resume_terminate;
 +		}
@@ -1884,7 +2296,7 @@ index 110591804b4c..5ac25c344385 100644
 +		if (ret != 0) {
 +			return -EAGAIN;
 +		}
-+		
++
 +		/*
 +		 * datasheet says "Start-up time": suspend to high performance mode is tipically 30ms,
 +		 * however when setting this to 32 or even higher the first reading from the gyro (unlike accel part)
@@ -1899,36 +2311,33 @@ index 110591804b4c..5ac25c344385 100644
  	mutex_lock(&data->mutex);
  	bmc150_accel_set_mode(data, BMC150_ACCEL_SLEEP_MODE_NORMAL, 0);
  	bmc150_accel_fifo_set_mode(data);
-@@ -1863,10 +3663,27 @@ static int bmc150_accel_runtime_suspend(struct device *dev)
+@@ -1863,6 +4081,25 @@ static int bmc150_accel_runtime_suspend(struct device *dev)
  	struct bmc150_accel_data *data = iio_priv(indio_dev);
  	int ret;
  
 +	if (data->dev_type == BMI323) {
 +		//dev_warn(dev, "bmi323 suspending runtime...");
-+		
++
 +		/*
 +		 * Every operation requiring this function have the mutex locked already:
 +		 * with mutex_lock(&data->bmi323.mutex);
 +		 */
 +		ret = bmi323_chip_rst(&data->bmi323);
 +		if (ret != 0) {
-+			dev_err(dev, "bmi323 error in runtime_suspend on bmi323_chip_rst: %d\n", ret);
++			dev_err(dev,
++				"bmi323 error in runtime_suspend on bmi323_chip_rst: %d\n",
++				ret);
 +			data->bmi323.flags |= BMI323_FLAGS_RESET_FAILED;
 +			return -EAGAIN;
 +		}
-+		
++
 +		return 0;
 +	}
 +
  	ret = bmc150_accel_set_mode(data, BMC150_ACCEL_SLEEP_MODE_SUSPEND, 0);
  	if (ret < 0)
  		return -EAGAIN;
--
-+		
- 	return 0;
- }
- 
-@@ -1877,6 +3694,59 @@ static int bmc150_accel_runtime_resume(struct device *dev)
+@@ -1877,6 +4114,70 @@ static int bmc150_accel_runtime_resume(struct device *dev)
  	int ret;
  	int sleep_val;
  
@@ -1944,36 +2353,47 @@ index 110591804b4c..5ac25c344385 100644
 +		if ((data->bmi323.flags & BMI323_FLAGS_RESET_FAILED) != 0x00U) {
 +			ret = bmi323_chip_rst(&data->bmi323);
 +			if (ret == 0) {
-+				data->bmi323.flags &= ~BMI323_FLAGS_RESET_FAILED;
++				data->bmi323.flags &=
++					~BMI323_FLAGS_RESET_FAILED;
 +			} else {
 +				goto bmi323_bmc150_accel_runtime_resume_terminate;
 +			}
 +		}
 +
-+		ret = bmi323_write_u16(&data->bmi323, BMC150_BMI323_FIFO_CONF_REG, data->bmi323.fifo_conf_reg_value);
++		ret = bmi323_write_u16(&data->bmi323,
++				       BMC150_BMI323_FIFO_CONF_REG,
++				       data->bmi323.fifo_conf_reg_value);
 +		if (ret != 0) {
-+			dev_err(dev, "bmi323 writing to GYR_CONF register failed");
++			dev_err(dev,
++				"bmi323 writing to GYR_CONF register failed");
 +			goto bmi323_bmc150_accel_runtime_resume_terminate;
 +		}
 +
-+		ret = bmi323_write_u16(&data->bmi323, BMC150_BMI323_GYR_CONF_REG, data->bmi323.gyr_conf_reg_value);
++		ret = bmi323_write_u16(&data->bmi323,
++				       BMC150_BMI323_GYR_CONF_REG,
++				       data->bmi323.gyr_conf_reg_value);
 +		if (ret != 0) {
-+			dev_err(dev, "bmi323 writing to GYR_CONF register failed");
++			dev_err(dev,
++				"bmi323 writing to GYR_CONF register failed");
 +			goto bmi323_bmc150_accel_runtime_resume_terminate;
 +		}
 +
-+		ret = bmi323_write_u16(&data->bmi323, BMC150_BMI323_ACC_CONF_REG, data->bmi323.acc_conf_reg_value);
++		ret = bmi323_write_u16(&data->bmi323,
++				       BMC150_BMI323_ACC_CONF_REG,
++				       data->bmi323.acc_conf_reg_value);
 +		if (ret != 0) {
-+			dev_err(dev, "bmi323 writing to ACC_CONF register failed");
++			dev_err(dev,
++				"bmi323 writing to ACC_CONF register failed");
 +			goto bmi323_bmc150_accel_runtime_resume_terminate;
 +		}
 +
 +bmi323_bmc150_accel_runtime_resume_terminate:
 +		if (ret != 0) {
-+			dev_err(dev, "bmi323 bmc150_accel_runtime_resume -EAGAIN");
++			dev_err(dev,
++				"bmi323 bmc150_accel_runtime_resume -EAGAIN");
 +			return -EAGAIN;
 +		}
-+		
++
 +		/*
 +		 * datasheet says "Start-up time": suspend to high performance mode is tipically 30ms,
 +		 * however when setting this to 32 or even higher the first reading from the gyro (unlike accel part)
@@ -1989,27 +2409,28 @@ index 110591804b4c..5ac25c344385 100644
  	if (ret < 0)
  		return ret;
 diff --git a/drivers/iio/accel/bmc150-accel-i2c.c b/drivers/iio/accel/bmc150-accel-i2c.c
-index ee1ba134ad42..a26b08f6feb3 100644
+index ee1ba134ad42..0d6ee304b3e7 100644
 --- a/drivers/iio/accel/bmc150-accel-i2c.c
 +++ b/drivers/iio/accel/bmc150-accel-i2c.c
-@@ -173,16 +173,92 @@ static void bmc150_acpi_dual_accel_remove(struct i2c_client *client) {}
+@@ -173,15 +173,102 @@ static void bmc150_acpi_dual_accel_remove(struct i2c_client *client) {}
  
  static int bmc150_accel_probe(struct i2c_client *client)
  {
 +	int ret;
-+	u8 chip_id_first[4];
++	u8 chip_id_first[4] = { 0x00, 0x00, 0x00, 0x00 };
 +	enum bmc150_device_type dev_type = BMC150;
  	const struct i2c_device_id *id = i2c_client_get_device_id(client);
  	struct regmap *regmap;
  	const char *name = NULL;
  	enum bmc150_type type = BOSCH_UNKNOWN;
--	bool block_supported =
-+	bool block_supported = false;
 +
 +	/* reads 4 bytes (2 dummy + 2 good) from the i2c CHIP_ID device register */
 +	ret = i2c_smbus_read_i2c_block_data(client, 0x00, 4, &chip_id_first[0]);
 +	if (ret != 4) {
-+		dev_info(&client->dev, "error checking if the bmc150 is in fact a bmi323: i2c_smbus_read_i2c_block_data = %d: reg = 0x%02x.\n\tIt probably is a bmc150 as correctly reported by the ACPI entry.", (int)ret, 0x00);
++		dev_info(
++			&client->dev,
++			"error checking if the bmc150 is in fact a bmi323: i2c_smbus_read_i2c_block_data = %d: reg = 0x%02x.\n\tIt probably is a bmc150 as correctly reported by the ACPI entry.",
++			(int)ret, 0x00);
 +		goto bmi150_old_probe;
 +	}
 +
@@ -2017,11 +2438,15 @@ index ee1ba134ad42..a26b08f6feb3 100644
 +	dev_type = (chip_id_first[2] == 0x43) ? BMI323 : dev_type;
 +
 +	if (dev_type == BMI323) {
-+		dev_warn(&client->dev, "bmc323: what the ACPI table reported as a bmc150 is in fact a bmc323\n");
++		dev_warn(
++			&client->dev,
++			"bmc323: what the ACPI table reported as a bmc150 is in fact a bmc323\n");
 +
-+		struct iio_dev *indio_dev = devm_iio_device_alloc(&client->dev, sizeof(struct bmc150_accel_data));
++		struct iio_dev *indio_dev = devm_iio_device_alloc(
++			&client->dev, sizeof(struct bmc150_accel_data));
 +		if (!indio_dev) {
-+			dev_err(&client->dev, "bmc323 init process failed: out of memory\n");
++			dev_err(&client->dev,
++				"bmc323 init process failed: out of memory\n");
 +
 +			return -ENOMEM;
 +		}
@@ -2030,7 +2455,7 @@ index ee1ba134ad42..a26b08f6feb3 100644
 +		struct bmc150_accel_data *data = iio_priv(indio_dev);
 +		data->dev_type = dev_type;
 +
-+		struct bmi323_private_data* bmi323_data = &data->bmi323;
++		struct bmi323_private_data *bmi323_data = &data->bmi323;
 +		bmi323_data->i2c_client = client;
 +		bmi323_data->spi_client = NULL;
 +		bmi323_data->irq = client->irq;
@@ -2041,54 +2466,57 @@ index ee1ba134ad42..a26b08f6feb3 100644
 +		 */
 +		bmi323_data->regulators[0].supply = "vdd";
 +		bmi323_data->regulators[1].supply = "vddio";
-+		ret = devm_regulator_bulk_get(&client->dev,
-+						ARRAY_SIZE(bmi323_data->regulators),
-+						bmi323_data->regulators);
++		ret = devm_regulator_bulk_get(
++			&client->dev, ARRAY_SIZE(bmi323_data->regulators),
++			bmi323_data->regulators);
 +		if (ret) {
-+			return dev_err_probe(&client->dev, ret, "failed to get regulators\n");
++			return dev_err_probe(&client->dev, ret,
++					     "failed to get regulators\n");
 +		}
 +
 +		ret = regulator_bulk_enable(ARRAY_SIZE(bmi323_data->regulators),
-+						bmi323_data->regulators);
++					    bmi323_data->regulators);
 +		if (ret) {
 +			iio_device_free(indio_dev);
 +
-+			dev_err(&client->dev, "failed to enable regulators: %d\n", ret);
++			dev_err(&client->dev,
++				"failed to enable regulators: %d\n", ret);
 +			return ret;
 +		}
 +
 +		ret = bmi323_chip_rst(bmi323_data);
 +		if (ret != 0) {
-+			dev_err(&client->dev, "bmc323: error issuing the chip reset: %d\n", ret);
++			dev_err(&client->dev,
++				"bmc323: error issuing the chip reset: %d\n",
++				ret);
 +			return ret;
 +		}
 +
-+		dev_info(&client->dev, "bmc323: chip reset success: starting the iio subsystem binding\n");
-+		
++		dev_info(
++			&client->dev,
++			"bmc323: chip reset success: starting the iio subsystem binding\n");
++
 +		ret = bmi323_iio_init(indio_dev);
 +		if (ret != 0) {
 +			return ret;
 +		}
 +
-+		
-+
 +		return 0;
 +	}
-+	
-+bmi150_old_probe:
-+	dev_info(&client->dev, "executing the normal procedure for a bmc150...");
 +
-+	block_supported =
++bmi150_old_probe:
++	dev_info(&client->dev,
++		 "executing the normal procedure for a bmc150...");
++
+ 	bool block_supported =
  		i2c_check_functionality(client->adapter, I2C_FUNC_I2C) ||
  		i2c_check_functionality(client->adapter,
  					I2C_FUNC_SMBUS_READ_I2C_BLOCK);
 -	int ret;
--
-+	
+ 
  	regmap = devm_regmap_init_i2c(client, &bmc150_regmap_conf);
  	if (IS_ERR(regmap)) {
- 		dev_err(&client->dev, "Failed to initialize i2c regmap\n");
-@@ -198,7 +274,7 @@ static int bmc150_accel_probe(struct i2c_client *client)
+@@ -198,7 +285,7 @@ static int bmc150_accel_probe(struct i2c_client *client)
  				      type, name, block_supported);
  	if (ret)
  		return ret;
@@ -2097,7 +2525,7 @@ index ee1ba134ad42..a26b08f6feb3 100644
  	/*
  	 * The !id check avoids recursion when probe() gets called
  	 * for the second client.
-@@ -211,6 +287,15 @@ static int bmc150_accel_probe(struct i2c_client *client)
+@@ -211,6 +298,15 @@ static int bmc150_accel_probe(struct i2c_client *client)
  
  static void bmc150_accel_remove(struct i2c_client *client)
  {
@@ -2114,7 +2542,7 @@ index ee1ba134ad42..a26b08f6feb3 100644
  
  	bmc150_accel_core_remove(&client->dev);
 diff --git a/drivers/iio/accel/bmc150-accel.h b/drivers/iio/accel/bmc150-accel.h
-index 7775c5edaeef..e84dded7c0ec 100644
+index 7775c5edaeef..65ec208960df 100644
 --- a/drivers/iio/accel/bmc150-accel.h
 +++ b/drivers/iio/accel/bmc150-accel.h
 @@ -8,6 +8,14 @@
@@ -2144,7 +2572,7 @@ index 7775c5edaeef..e84dded7c0ec 100644
  struct bmc150_accel_trigger {
  	struct bmc150_accel_data *data;
  	struct iio_trigger *indio_trig;
-@@ -55,6 +68,21 @@ enum bmc150_accel_trigger_id {
+@@ -55,6 +68,25 @@ enum bmc150_accel_trigger_id {
  	BMC150_ACCEL_TRIGGERS,
  };
  
@@ -2152,21 +2580,25 @@ index 7775c5edaeef..e84dded7c0ec 100644
 +
 +struct bmi323_private_data {
 +	struct regulator_bulk_data regulators[2];
-+	struct i2c_client* i2c_client;
-+	struct spi_device* spi_client;
-+	struct device* dev; // pointer at i2c_client->dev or spi_client->dev
++	struct i2c_client *i2c_client;
++	struct spi_device *spi_client;
++	struct device *dev; /* pointer at i2c_client->dev or spi_client->dev */
 +	struct mutex mutex;
 +	int irq;
 +	u32 flags;
 +	u16 acc_conf_reg_value;
 +	u16 gyr_conf_reg_value;
 +	u16 fifo_conf_reg_value;
++	struct iio_trigger *trig[1];
++	s64 fifo_frame_time_diff_ns;
++	s64 acc_odr_time_ns;
++	s64 gyr_odr_time_ns;
 +};
 +
  struct bmc150_accel_data {
  	struct regmap *regmap;
  	struct regulator_bulk_data regulators[2];
-@@ -83,7 +111,67 @@ struct bmc150_accel_data {
+@@ -83,7 +115,67 @@ struct bmc150_accel_data {
  	void (*resume_callback)(struct device *dev);
  	struct delayed_work resume_work;
  	struct iio_mount_matrix orientation;
@@ -2223,7 +2655,7 @@ index 7775c5edaeef..e84dded7c0ec 100644
 +int bmi323_chip_rst(struct bmi323_private_data *bmi323);
 +
 +/**
-+ * This function  MUST be called in probe and is responsible for registering the userspace sysfs.
++ * This function MUST be called in probe and is responsible for registering the userspace sysfs.
 + *
 + * The indio_dev MUST have been allocated but not registered. This function will perform userspace registration.
 + *
@@ -2235,1931 +2667,6 @@ index 7775c5edaeef..e84dded7c0ec 100644
  
  int bmc150_accel_core_probe(struct device *dev, struct regmap *regmap, int irq,
  			    enum bmc150_type type, const char *name,
--- 
-2.42.0
-
-
-From fc1c2c2fce55e90d2e942e4109193eb73125ff5c Mon Sep 17 00:00:00 2001
-From: Denis <benato.denis96@gmail.com>
-Date: Mon, 18 Sep 2023 02:04:24 +0200
-Subject: [PATCH 02/18] Removed two warnings that I previously missed
-
----
- drivers/iio/accel/bmc150-accel-core.c | 27 ---------------------------
- 1 file changed, 27 deletions(-)
-
-diff --git a/drivers/iio/accel/bmc150-accel-core.c b/drivers/iio/accel/bmc150-accel-core.c
-index 5ac25c344385..79d7d0694add 100644
---- a/drivers/iio/accel/bmc150-accel-core.c
-+++ b/drivers/iio/accel/bmc150-accel-core.c
-@@ -2697,32 +2697,6 @@ int bmi323_chip_check(struct bmi323_private_data *bmi323)
- }
- EXPORT_SYMBOL_NS_GPL(bmi323_chip_check, IIO_BMC150);
- 
--static irqreturn_t bmi323_trigger_handler(int irq, void *p)
--{
--	struct iio_poll_func *pf = p;
--	struct iio_dev *indio_dev = pf->indio_dev;
--/*	
--	struct bmc150_accel_data *data = iio_priv(indio_dev);
--	
--	int ret;
--
--	mutex_lock(&data->mutex);
--	ret = regmap_bulk_read(data->regmap, BMC150_ACCEL_REG_XOUT_L,
--			       data->buffer, AXIS_MAX * 2);
--	mutex_unlock(&data->mutex);
--	if (ret < 0)
--		goto err_read;
--
--	iio_push_to_buffers_with_timestamp(indio_dev, data->buffer,
--					   pf->timestamp);
--err_read:
--*/
--	iio_trigger_notify_done(indio_dev->trig);
--
--
--	return IRQ_HANDLED;
--}
--
- static int bmi323_buffer_preenable(struct iio_dev *indio_dev)
- {
- 	struct bmc150_accel_data *data = iio_priv(indio_dev);
-@@ -3412,7 +3386,6 @@ static const unsigned long bmi323_accel_scan_masks[] = {
- 					0};
- 
- int bmi323_iio_init(struct iio_dev *indio_dev) {
--	const struct iio_dev_attr **fifo_attrs = NULL;
- 	struct bmc150_accel_data *data = iio_priv(indio_dev);
- 	struct irq_data *irq_desc = NULL;
- 
--- 
-2.42.0
-
-
-From 0b5bb888c1bfdaecb26e570c3cc98a9dc86e0e8e Mon Sep 17 00:00:00 2001
-From: Denis <benato.denis96@gmail.com>
-Date: Wed, 20 Sep 2023 14:41:54 +0200
-Subject: [PATCH 03/18] Setup trigger.
-
----
- drivers/iio/accel/bmc150-accel-core.c | 33 +++++++++++++++++++++++++++
- drivers/iio/accel/bmc150-accel.h      |  1 +
- 2 files changed, 34 insertions(+)
-
-diff --git a/drivers/iio/accel/bmc150-accel-core.c b/drivers/iio/accel/bmc150-accel-core.c
-index 79d7d0694add..0f0fd720fda4 100644
---- a/drivers/iio/accel/bmc150-accel-core.c
-+++ b/drivers/iio/accel/bmc150-accel-core.c
-@@ -3313,6 +3313,8 @@ static const struct iio_info bmi323_accel_info = {
-  */
- static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- {
-+	printk(KERN_WARNING "bmi323 executed iio_bmi323_trigger_h");
-+
- 	struct iio_poll_func *pf = p;
- 	struct iio_dev *indio_dev = pf->indio_dev;
- 	u16 *data;
-@@ -3377,6 +3379,17 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 	return IRQ_HANDLED;
- }
- 
-+int bmi323_set_trigger_state(struct iio_trigger *trig, bool state) {
-+
-+	return 0;
-+}
-+
-+static  const struct iio_trigger_ops time_trigger_ops = {
-+    .set_trigger_state = &bmi323_set_trigger_state,
-+    //.reenable = NULL,
-+    .validate_device = &iio_trigger_validate_own_device,
-+};
-+
- /*
-  * A very basic scan mask: everything can work in conjunction with everything else so no need to worry about
-  * managing conbinations of mutually exclusive data sources...
-@@ -3464,6 +3477,22 @@ int bmi323_iio_init(struct iio_dev *indio_dev) {
- 	dev_info(data->bmi323.dev, "IRQ pin NOT connected (irq=%d). Will continue normally without triggers.", data->bmi323.irq);
- 
- bmi323_iio_init_common_irq_and_not_irq:
-+	data->bmi323.trig[0] = devm_iio_trigger_alloc(data->bmi323.dev, "trig-%s-%d", indio_dev->name, iio_device_id(indio_dev));
-+	if (data->bmi323.trig[0] == NULL) {
-+		ret = -ENOMEM;
-+		goto bmi323_iio_init_err_trigger_unregister;
-+	}
-+
-+	data->bmi323.trig[0]->ops = &time_trigger_ops;
-+	iio_trigger_set_drvdata(data->bmi323.trig[0], indio_dev);
-+	ret = devm_iio_trigger_register(data->bmi323.dev, data->bmi323.trig[0]);
-+	if (ret) {
-+		dev_err(data->bmi323.dev, "iio trigger register failed\n");
-+		goto bmi323_iio_init_err_trigger_unregister;
-+	}
-+
-+	
-+
- 	/* Once orientation matrix is implemented switch this to iio_triggered_buffer_setup_ext. */
- 	ret = iio_triggered_buffer_setup(indio_dev, NULL,
- 					  iio_bmi323_trigger_h,
-@@ -3505,6 +3534,10 @@ int bmi323_iio_init(struct iio_dev *indio_dev) {
- 	 * This is just a placeholder until I can get my hands on a bmi323
- 	 * device that has the IRQ pin actually connected to the CPU.
- 	 */
-+	//if (data->bmi323.trig[0] != NULL) {
-+	//	iio_trigger_unregister(data->bmi323.trig[0]);
-+	//}
-+	
- 
- 	return ret;
- }
-diff --git a/drivers/iio/accel/bmc150-accel.h b/drivers/iio/accel/bmc150-accel.h
-index e84dded7c0ec..226f48c1c87f 100644
---- a/drivers/iio/accel/bmc150-accel.h
-+++ b/drivers/iio/accel/bmc150-accel.h
-@@ -81,6 +81,7 @@ struct bmi323_private_data {
- 	u16 acc_conf_reg_value;
- 	u16 gyr_conf_reg_value;
- 	u16 fifo_conf_reg_value;
-+	struct iio_trigger* trig[1];
- };
- 
- struct bmc150_accel_data {
--- 
-2.42.0
-
-
-From 90e353461a17a1557c2f8ae600946293dd2f8d92 Mon Sep 17 00:00:00 2001
-From: Denis <benato.denis96@gmail.com>
-Date: Wed, 20 Sep 2023 16:57:28 +0200
-Subject: [PATCH 04/18] debugging buffered mode
-
----
- drivers/iio/accel/bmc150-accel-core.c | 69 ++++++++++++++++++++++++++-
- 1 file changed, 68 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/iio/accel/bmc150-accel-core.c b/drivers/iio/accel/bmc150-accel-core.c
-index 0f0fd720fda4..5e6808967dad 100644
---- a/drivers/iio/accel/bmc150-accel-core.c
-+++ b/drivers/iio/accel/bmc150-accel-core.c
-@@ -2834,6 +2834,11 @@ static int bmi323_read_raw(struct iio_dev *indio_dev,
- 		{
- 			switch (chan->type) {
- 			case IIO_TEMP:
-+				if (iio_buffer_enabled(indio_dev)) {
-+					ret = -EBUSY;
-+					goto bmi323_read_raw_error;
-+				}
-+
- 				was_sleep_modified = bmi323_set_power_state(&data->bmi323, true);
- 				if (was_sleep_modified != 0) {
- 					ret = was_sleep_modified;
-@@ -2859,6 +2864,11 @@ static int bmi323_read_raw(struct iio_dev *indio_dev,
- 				return IIO_VAL_INT;
- 
- 			case IIO_ACCEL:
-+				if (iio_buffer_enabled(indio_dev)) {
-+					ret = -EBUSY;
-+					goto bmi323_read_raw_error;
-+				}
-+
- 				was_sleep_modified = bmi323_set_power_state(&data->bmi323, true);
- 				if (was_sleep_modified != 0) {
- 					ret = was_sleep_modified;
-@@ -2883,6 +2893,11 @@ static int bmi323_read_raw(struct iio_dev *indio_dev,
- 				return IIO_VAL_INT;
- 
- 			case IIO_ANGL_VEL:
-+				if (iio_buffer_enabled(indio_dev)) {
-+					ret = -EBUSY;
-+					goto bmi323_read_raw_error;
-+				}
-+
- 				was_sleep_modified = bmi323_set_power_state(&data->bmi323, true);
- 				if (was_sleep_modified != 0) {
- 					ret = was_sleep_modified;
-@@ -3024,17 +3039,22 @@ static int bmi323_read_raw(struct iio_dev *indio_dev,
- 		switch (chan->type) {
- 			case IIO_TEMP:
- 				{
-+					/*
- 					was_sleep_modified = bmi323_set_power_state(&data->bmi323, true);
- 					if (was_sleep_modified != 0) {
- 						ret = was_sleep_modified;
- 						goto bmi323_read_raw_error_power;
- 					}
-+					*/
- 
- 					// while in normal or power mode the temperature sensur has a 50Hz sampling frequency
- 					*val = 50;
- 					*val2 = 0;
- 
-+					/*
- 					bmi323_set_power_state(&data->bmi323, false);
-+					*/
-+
- 					mutex_unlock(&data->bmi323.mutex);
- 					return IIO_VAL_INT_PLUS_MICRO;
- 				}
-@@ -3122,6 +3142,11 @@ static int bmi323_write_raw(struct iio_dev *indio_dev,
- 	case IIO_CHAN_INFO_SAMP_FREQ:
- 		switch (chan->type) {
- 			case IIO_ACCEL:
-+				if (iio_buffer_enabled(indio_dev)) {
-+					ret = -EBUSY;
-+					goto bmi323_write_raw_error;
-+				}
-+
- 				for (int s = 0; s < ARRAY_SIZE(bmi323_accel_odr_map); ++s) {
- 					if ((bmi323_accel_odr_map[s].val == val) && (bmi323_accel_odr_map[s].val2 == val2)) {
- 						u8* le_raw_read = (u8*)&data->bmi323.acc_conf_reg_value;
-@@ -3148,6 +3173,11 @@ static int bmi323_write_raw(struct iio_dev *indio_dev,
- 				ret = -EINVAL;
- 				goto bmi323_write_raw_error;
- 			case IIO_ANGL_VEL:
-+				if (iio_buffer_enabled(indio_dev)) {
-+					ret = -EBUSY;
-+					goto bmi323_write_raw_error;
-+				}
-+
- 				for (int s = 0; s < ARRAY_SIZE(bmi323_gyro_odr_map); ++s) {
- 					if ((bmi323_gyro_odr_map[s].val == val) && (bmi323_gyro_odr_map[s].val2 == val2)) {
- 						u8* le_raw_read = (u8*)&data->bmi323.gyr_conf_reg_value;
-@@ -3184,6 +3214,11 @@ static int bmi323_write_raw(struct iio_dev *indio_dev,
- 	case IIO_CHAN_INFO_SCALE:
- 		switch (chan->type) {
- 			case IIO_ACCEL:
-+				if (iio_buffer_enabled(indio_dev)) {
-+					ret = -EBUSY;
-+					goto bmi323_write_raw_error;
-+				}
-+
- 				for (int s = 0; s < ARRAY_SIZE(bmi323_accel_scale_map); ++s) {
- 					if ((bmi323_accel_scale_map[s].val == val) && (bmi323_accel_scale_map[s].val2 == val2)) {
- 						u8* le_raw_read = (u8*)&data->bmi323.acc_conf_reg_value;
-@@ -3212,6 +3247,11 @@ static int bmi323_write_raw(struct iio_dev *indio_dev,
- 				ret = -EINVAL;
- 				goto bmi323_write_raw_error;
- 			case IIO_ANGL_VEL:
-+				if (iio_buffer_enabled(indio_dev)) {
-+					ret = -EBUSY;
-+					goto bmi323_write_raw_error;
-+				}
-+				
- 				for (int s = 0; s < ARRAY_SIZE(bmi323_gyro_scale_map); ++s) {
- 					if ((bmi323_gyro_scale_map[s].val == val) && (bmi323_gyro_scale_map[s].val2 == val2)) {
- 						u8* le_raw_read = (u8*)&data->bmi323.gyr_conf_reg_value;
-@@ -3508,7 +3548,7 @@ int bmi323_iio_init(struct iio_dev *indio_dev) {
- 		goto bmi323_iio_init_err_buffer_cleanup;
- 	}
- 
--	pm_runtime_enable(data->bmi323.dev);dev_err(data->bmi323.dev, "bmi323 pm_runtime_set_autosuspend_delay\n");
-+	pm_runtime_enable(data->bmi323.dev);
- 	pm_runtime_set_autosuspend_delay(data->bmi323.dev,
- 					 BMC150_BMI323_AUTO_SUSPEND_DELAY_MS);
- 	pm_runtime_use_autosuspend(data->bmi323.dev);
-@@ -3521,6 +3561,33 @@ int bmi323_iio_init(struct iio_dev *indio_dev) {
- 
- 	return 0;
- 
-+	/*
-+	Tutorial:
-+$ modprobe iio-trig-sysfs
-+echo 0 > iio_sysfs_trigger/add_trigger
-+
-+$ cd /sys/bus/iio/devices/iio\:device0
-+$ cat name
-+48003000.adc:adc@0
-+$ ls scan_elements
-+in_voltage0_en  in_voltage0_index  in_voltage0_type  in_voltage1_en  in_voltage1_index  in_voltage1_type
-+$ ls trigger
-+current_trigger
-+$ ls buffer
-+enable  length  watermark
-+	
-+$ #example:
-+$ echo 1 > scan_elements/in_accel_x_en                         # Enable channel 0
-+$ echo 1 > scan_elements/in_accel_x_en                         # Enable channel 1
-+$ echo "sysfstrig0" > trigger/current_trigger               # Assign trig-bmi323-0 trigger to accellerometer
-+$ cat trigger/current_trigger
-+sysfstrig0
-+$ echo 1 > buffer/enable
-+
-+data acquisition:
-+$ echo 1 > trigger1/trigger_now
-+	*/
-+
- bmi323_iio_init_err_pm_cleanup:
- 	pm_runtime_dont_use_autosuspend(data->bmi323.dev);
- 	pm_runtime_disable(data->bmi323.dev);
--- 
-2.42.0
-
-
-From 839d90d64605ae61358cbe3192c51f0214cb4ae7 Mon Sep 17 00:00:00 2001
-From: Denis <benato.denis96@gmail.com>
-Date: Thu, 21 Sep 2023 14:47:22 +0200
-Subject: [PATCH 05/18] use the correct time-fetching function on buffer
- trigger
-
----
- drivers/iio/accel/bmc150-accel-core.c | 34 ++++++++++++++-------------
- 1 file changed, 18 insertions(+), 16 deletions(-)
-
-diff --git a/drivers/iio/accel/bmc150-accel-core.c b/drivers/iio/accel/bmc150-accel-core.c
-index 5e6808967dad..6e9f0167cbbc 100644
---- a/drivers/iio/accel/bmc150-accel-core.c
-+++ b/drivers/iio/accel/bmc150-accel-core.c
-@@ -3251,7 +3251,7 @@ static int bmi323_write_raw(struct iio_dev *indio_dev,
- 					ret = -EBUSY;
- 					goto bmi323_write_raw_error;
- 				}
--				
-+
- 				for (int s = 0; s < ARRAY_SIZE(bmi323_gyro_scale_map); ++s) {
- 					if ((bmi323_gyro_scale_map[s].val == val) && (bmi323_gyro_scale_map[s].val2 == val2)) {
- 						u8* le_raw_read = (u8*)&data->bmi323.gyr_conf_reg_value;
-@@ -3534,9 +3534,11 @@ int bmi323_iio_init(struct iio_dev *indio_dev) {
- 	
- 
- 	/* Once orientation matrix is implemented switch this to iio_triggered_buffer_setup_ext. */
--	ret = iio_triggered_buffer_setup(indio_dev, NULL,
--					  iio_bmi323_trigger_h,
--					  &bmi323_buffer_ops);
-+	ret = iio_triggered_buffer_setup(
-+		indio_dev,
-+		&iio_pollfunc_store_time,
-+		iio_bmi323_trigger_h,
-+		&bmi323_buffer_ops);
- 	if (ret < 0) {
- 		dev_err(data->bmi323.dev, "Failed: iio triggered buffer setup: %d\n", ret);
- 		goto bmi323_iio_init_err_trigger_unregister;
-@@ -3564,28 +3566,28 @@ int bmi323_iio_init(struct iio_dev *indio_dev) {
- 	/*
- 	Tutorial:
- $ modprobe iio-trig-sysfs
--echo 0 > iio_sysfs_trigger/add_trigger
-+echo 0 > /sys/bus/iio/devices/iio_sysfs_trigger/add_trigger
- 
- $ cd /sys/bus/iio/devices/iio\:device0
--$ cat name
--48003000.adc:adc@0
--$ ls scan_elements
-+$ cat /sys/bus/iio/devices/iio\:device0/name
-+
-+$ ls /sys/bus/iio/devices/iio\:device0/scan_elements
- in_voltage0_en  in_voltage0_index  in_voltage0_type  in_voltage1_en  in_voltage1_index  in_voltage1_type
--$ ls trigger
-+$ ls /sys/bus/iio/devices/iio\:device0/trigger
- current_trigger
--$ ls buffer
-+$ ls /sys/bus/iio/devices/iio\:device0/buffer
- enable  length  watermark
- 	
- $ #example:
--$ echo 1 > scan_elements/in_accel_x_en                         # Enable channel 0
--$ echo 1 > scan_elements/in_accel_x_en                         # Enable channel 1
--$ echo "sysfstrig0" > trigger/current_trigger               # Assign trig-bmi323-0 trigger to accellerometer
--$ cat trigger/current_trigger
-+$ echo 1 > /sys/bus/iio/devices/iio\:device0/scan_elements/in_accel_x_en                         # Enable channel 0
-+$ echo 1 > /sys/bus/iio/devices/iio\:device0/scan_elements/in_accel_x_en                         # Enable channel 1
-+$ echo "sysfstrig0" > /sys/bus/iio/devices/iio\:device0/trigger/current_trigger               # Assign trig-bmi323-0 trigger to accellerometer
-+$ cat /sys/bus/iio/devices/iio\:device0/trigger/current_trigger
- sysfstrig0
--$ echo 1 > buffer/enable
-+$ echo 1 > cat /sys/bus/iio/devices/iio\:device0/buffer/enable
- 
- data acquisition:
--$ echo 1 > trigger1/trigger_now
-+$ echo 1 >  cat /sys/bus/iio/devices/trigger1/trigger_now
- 	*/
- 
- bmi323_iio_init_err_pm_cleanup:
--- 
-2.42.0
-
-
-From abbeadab4bca0dc2a5b0f7bb2cc3f3c1920154a1 Mon Sep 17 00:00:00 2001
-From: Denis <benato.denis96@gmail.com>
-Date: Thu, 21 Sep 2023 15:09:34 +0200
-Subject: [PATCH 06/18] debugging trigger
-
----
- drivers/iio/accel/bmc150-accel-core.c | 22 ++++++++++++++++++----
- 1 file changed, 18 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/iio/accel/bmc150-accel-core.c b/drivers/iio/accel/bmc150-accel-core.c
-index 6e9f0167cbbc..2b32c229301d 100644
---- a/drivers/iio/accel/bmc150-accel-core.c
-+++ b/drivers/iio/accel/bmc150-accel-core.c
-@@ -3356,7 +3356,13 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 	printk(KERN_WARNING "bmi323 executed iio_bmi323_trigger_h");
- 
- 	struct iio_poll_func *pf = p;
-+
-+	printk(KERN_WARNING "bmi323 iio_poll_func fetched");
-+
- 	struct iio_dev *indio_dev = pf->indio_dev;
-+
-+	printk(KERN_WARNING "bmi323 iio_dev fetched");
-+
- 	u16 *data;
- 	//struct bmc150_accel_data *indio_data = iio_priv(indio_dev);
- 
-@@ -3364,6 +3370,8 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 	if (!data)
- 		goto bmi323_irq_done;
- 
-+	printk(KERN_WARNING "bmi323 memory allocated");
-+
- 	/*
- 	CHANNEL			scan_index
- 	==========================
-@@ -3404,12 +3412,18 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 	for_each_set_bit(j, indio_dev->active_scan_mask, indio_dev->masklength)
- 		data[i++] = cpu_to_le16(0x8000);
- 
-+	printk(KERN_WARNING "bmi323 pushing to buffer....");
-+
- 	iio_push_to_buffers_with_timestamp(indio_dev, data,
- 					   iio_get_time_ns(indio_dev));
- 
-+	printk(KERN_WARNING "bmi323 push done");
-+
- 	kfree(data);
- 
- bmi323_irq_done:
-+	printk(KERN_WARNING "bmi323 executing iio_trigger_notify_done");
-+
- 	/*
- 	 * Tell the core we are done with this trigger and ready for the
- 	 * next one.
-@@ -3566,7 +3580,7 @@ int bmi323_iio_init(struct iio_dev *indio_dev) {
- 	/*
- 	Tutorial:
- $ modprobe iio-trig-sysfs
--echo 0 > /sys/bus/iio/devices/iio_sysfs_trigger/add_trigger
-+$ echo 0 > /sys/bus/iio/devices/iio_sysfs_trigger/add_trigger
- 
- $ cd /sys/bus/iio/devices/iio\:device0
- $ cat /sys/bus/iio/devices/iio\:device0/name
-@@ -3580,14 +3594,14 @@ enable  length  watermark
- 	
- $ #example:
- $ echo 1 > /sys/bus/iio/devices/iio\:device0/scan_elements/in_accel_x_en                         # Enable channel 0
--$ echo 1 > /sys/bus/iio/devices/iio\:device0/scan_elements/in_accel_x_en                         # Enable channel 1
-+$ echo 1 > /sys/bus/iio/devices/iio\:device0/scan_elements/in_anglvel_x_en                         # Enable channel 1
- $ echo "sysfstrig0" > /sys/bus/iio/devices/iio\:device0/trigger/current_trigger               # Assign trig-bmi323-0 trigger to accellerometer
- $ cat /sys/bus/iio/devices/iio\:device0/trigger/current_trigger
- sysfstrig0
--$ echo 1 > cat /sys/bus/iio/devices/iio\:device0/buffer/enable
-+$ echo 1 > /sys/bus/iio/devices/iio\:device0/buffer/enable
- 
- data acquisition:
--$ echo 1 >  cat /sys/bus/iio/devices/trigger1/trigger_now
-+$ echo 1 >  /sys/bus/iio/devices/trigger1/trigger_now
- 	*/
- 
- bmi323_iio_init_err_pm_cleanup:
--- 
-2.42.0
-
-
-From 70fc3ad03f393588070af02e549022198122cdac Mon Sep 17 00:00:00 2001
-From: Denis <benato.denis96@gmail.com>
-Date: Thu, 21 Sep 2023 16:17:31 +0200
-Subject: [PATCH 07/18] Am I writing outside the buffer?
-
----
- drivers/iio/accel/bmc150-accel-core.c | 15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/iio/accel/bmc150-accel-core.c b/drivers/iio/accel/bmc150-accel-core.c
-index 2b32c229301d..7d93018ff19a 100644
---- a/drivers/iio/accel/bmc150-accel-core.c
-+++ b/drivers/iio/accel/bmc150-accel-core.c
-@@ -3331,10 +3331,23 @@ static int bmi323_read_avail(struct iio_dev *indio_dev,
- 	}
- }
- 
-+static int bmi323_fifo_flush(struct iio_dev *indio_dev, unsigned samples)
-+{
-+	struct bmc150_accel_data *data = iio_priv(indio_dev);
-+	int ret;
-+
-+	mutex_lock(&data->bmi323.mutex);
-+	ret = __bmc150_accel_fifo_flush(indio_dev, samples, false);
-+	mutex_unlock(&data->bmi323.mutex);
-+
-+	return ret;
-+}
-+
- static const struct iio_info bmi323_accel_info = {
- 	.read_raw		= bmi323_read_raw,
- 	.write_raw		= bmi323_write_raw,
- 	.read_avail		= bmi323_read_avail,
-+	//.hwfifo_flush_to_buffer	= bmi323_fifo_flush,
- };
- 
- 
-@@ -3366,7 +3379,7 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 	u16 *data;
- 	//struct bmc150_accel_data *indio_data = iio_priv(indio_dev);
- 
--	data = kmalloc(indio_dev->scan_bytes, GFP_KERNEL);
-+	data = kmalloc(indio_dev->scan_bytes * 8, GFP_KERNEL);
- 	if (!data)
- 		goto bmi323_irq_done;
- 
--- 
-2.42.0
-
-
-From aea494c636b02b784c1273746977fd2057c7d893 Mon Sep 17 00:00:00 2001
-From: Denis <benato.denis96@gmail.com>
-Date: Thu, 21 Sep 2023 16:28:51 +0200
-Subject: [PATCH 08/18] more output
-
----
- drivers/iio/accel/bmc150-accel-core.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/iio/accel/bmc150-accel-core.c b/drivers/iio/accel/bmc150-accel-core.c
-index 7d93018ff19a..a417810809ef 100644
---- a/drivers/iio/accel/bmc150-accel-core.c
-+++ b/drivers/iio/accel/bmc150-accel-core.c
-@@ -3422,8 +3422,10 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 	}*/
- 
- 	int j = 0, i = 0;
--	for_each_set_bit(j, indio_dev->active_scan_mask, indio_dev->masklength)
-+	for_each_set_bit(j, indio_dev->active_scan_mask, indio_dev->masklength) {
-+		printk(KERN_WARNING "bmi323 reading %d of %d...", (int)j, (int)indio_dev->masklength);
- 		data[i++] = cpu_to_le16(0x8000);
-+	}
- 
- 	printk(KERN_WARNING "bmi323 pushing to buffer....");
- 
--- 
-2.42.0
-
-
-From e34ffef251beea43aa24dc95ce4e07f120f248c8 Mon Sep 17 00:00:00 2001
-From: Denis <benato.denis96@gmail.com>
-Date: Thu, 21 Sep 2023 17:19:57 +0200
-Subject: [PATCH 09/18] more debug
-
----
- drivers/iio/accel/bmc150-accel-core.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/iio/accel/bmc150-accel-core.c b/drivers/iio/accel/bmc150-accel-core.c
-index a417810809ef..73d348f5cc46 100644
---- a/drivers/iio/accel/bmc150-accel-core.c
-+++ b/drivers/iio/accel/bmc150-accel-core.c
-@@ -3379,7 +3379,9 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 	u16 *data;
- 	//struct bmc150_accel_data *indio_data = iio_priv(indio_dev);
- 
--	data = kmalloc(indio_dev->scan_bytes * 8, GFP_KERNEL);
-+	printk(KERN_WARNING "bmi323 allocating memory for %d scan_bytes", (int)indio_dev->scan_bytes);
-+
-+	data = kmalloc(1024, GFP_KERNEL);
- 	if (!data)
- 		goto bmi323_irq_done;
- 
--- 
-2.42.0
-
-
-From c0d0a5006963ea4a3b614e3594b1798d11b6bb3d Mon Sep 17 00:00:00 2001
-From: Denis <benato.denis96@gmail.com>
-Date: Thu, 21 Sep 2023 18:27:21 +0200
-Subject: [PATCH 10/18] testing data read directly from the sensor
-
----
- drivers/iio/accel/bmc150-accel-core.c | 52 +++++++++++++++++++++------
- drivers/iio/accel/bmc150-accel.h      |  4 ++-
- 2 files changed, 45 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/iio/accel/bmc150-accel-core.c b/drivers/iio/accel/bmc150-accel-core.c
-index 73d348f5cc46..f02763e34cb8 100644
---- a/drivers/iio/accel/bmc150-accel-core.c
-+++ b/drivers/iio/accel/bmc150-accel-core.c
-@@ -3369,23 +3369,39 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 	printk(KERN_WARNING "bmi323 executed iio_bmi323_trigger_h");
- 
- 	struct iio_poll_func *pf = p;
--
--	printk(KERN_WARNING "bmi323 iio_poll_func fetched");
--
- 	struct iio_dev *indio_dev = pf->indio_dev;
-+	struct bmc150_accel_data *indio_data = iio_priv(indio_dev);
- 
- 	printk(KERN_WARNING "bmi323 iio_dev fetched");
- 
--	u16 *data;
--	//struct bmc150_accel_data *indio_data = iio_priv(indio_dev);
-+	const int frames_aggregate_size = (3 * 2) + (3 * 2);
-+
-+	if (indio_data->bmi323.i2c_client != NULL) {
-+		int read_block_ret = i2c_smbus_read_i2c_block_data(indio_data->bmi323.i2c_client, 0x16, frames_aggregate_size, &indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size]);
-+		if (read_block_ret != frames_aggregate_size) {
-+			printk(KERN_ERR "bmi323: i2c_smbus_read_i2c_block_data wrong return: expected %d bytes, %d arrived\n", frames_aggregate_size, read_block_ret);
-+			goto bmi323_irq_done;
-+		}
-+	} else if (indio_data->bmi323.spi_client != NULL) {
-+		printk(KERN_CRIT "bmi323: SPI interface is not yet implemented.\n");
-+
-+		/*
-+		 * To whoever may need this: implementing this should be straightforward:
-+		 * it's specular to the i2c part.
-+		 */
- 
-+		goto bmi323_irq_done;
-+	}
-+
-+/*
- 	printk(KERN_WARNING "bmi323 allocating memory for %d scan_bytes", (int)indio_dev->scan_bytes);
- 
--	data = kmalloc(1024, GFP_KERNEL);
-+	u16* data = kmalloc(1024, GFP_KERNEL);
- 	if (!data)
- 		goto bmi323_irq_done;
- 
- 	printk(KERN_WARNING "bmi323 memory allocated");
-+*/
- 
- 	/*
- 	CHANNEL			scan_index
-@@ -3423,20 +3439,34 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 		}
- 	}*/
- 
-+	/*
- 	int j = 0, i = 0;
- 	for_each_set_bit(j, indio_dev->active_scan_mask, indio_dev->masklength) {
- 		printk(KERN_WARNING "bmi323 reading %d of %d...", (int)j, (int)indio_dev->masklength);
- 		data[i++] = cpu_to_le16(0x8000);
- 	}
-+	*/
-+
-+	printk(KERN_WARNING "bmi323 pushing to buffer -- accel:[0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x] gyro: [0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x]",
-+		(unsigned int)indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size + 0],
-+		(unsigned int)indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size + 1],
-+		(unsigned int)indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size + 2],
-+		(unsigned int)indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size + 3],
-+		(unsigned int)indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size + 4],
-+		(unsigned int)indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size + 5]
-+		//indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size + 6]
-+	);
- 
--	printk(KERN_WARNING "bmi323 pushing to buffer....");
-+	iio_push_to_buffers_with_timestamp(indio_dev, &indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size], iio_get_time_ns(indio_dev));
- 
--	iio_push_to_buffers_with_timestamp(indio_dev, data,
--					   iio_get_time_ns(indio_dev));
-+	indio_data->bmi323.fifo_count += 1;
-+	indio_data->bmi323.fifo_count %= 128;
- 
- 	printk(KERN_WARNING "bmi323 push done");
- 
-+/*
- 	kfree(data);
-+*/
- 
- bmi323_irq_done:
- 	printk(KERN_WARNING "bmi323 executing iio_trigger_notify_done");
-@@ -3466,7 +3496,7 @@ static  const struct iio_trigger_ops time_trigger_ops = {
-  * managing conbinations of mutually exclusive data sources...
-  */
- static const unsigned long bmi323_accel_scan_masks[] = {
--					BIT(BMI323_ACCEL_AXIS_X) | BIT(BMI323_ACCEL_AXIS_Y) | BIT(BMI323_ACCEL_AXIS_Z) | BIT(BMI323_GYRO_AXIS_X) | BIT(BMI323_GYRO_AXIS_Y) | BIT(BMI323_GYRO_AXIS_Z) | BIT(BMI323_TEMP),
-+					BIT(BMI323_ACCEL_AXIS_X) | BIT(BMI323_ACCEL_AXIS_Y) | BIT(BMI323_ACCEL_AXIS_Z) | BIT(BMI323_GYRO_AXIS_X) | BIT(BMI323_GYRO_AXIS_Y) | BIT(BMI323_GYRO_AXIS_Z) /*| BIT(BMI323_TEMP)*/,
- 					0};
- 
- int bmi323_iio_init(struct iio_dev *indio_dev) {
-@@ -3485,6 +3515,8 @@ int bmi323_iio_init(struct iio_dev *indio_dev) {
- 
- 	mutex_init(&data->bmi323.mutex);
- 
-+	data->bmi323.fifo_count = 0;
-+
- 	// FIFO enabled for gyro, accel and temp. Overwrite older samples.
- 	data->bmi323.fifo_conf_reg_value = cpu_to_le16((u16)0x0E00U);
- 
-diff --git a/drivers/iio/accel/bmc150-accel.h b/drivers/iio/accel/bmc150-accel.h
-index 226f48c1c87f..03c7c491e391 100644
---- a/drivers/iio/accel/bmc150-accel.h
-+++ b/drivers/iio/accel/bmc150-accel.h
-@@ -74,7 +74,7 @@ struct bmi323_private_data {
- 	struct regulator_bulk_data regulators[2];
- 	struct i2c_client* i2c_client;
- 	struct spi_device* spi_client;
--	struct device* dev; // pointer at i2c_client->dev or spi_client->dev
-+	struct device* dev; /* pointer at i2c_client->dev or spi_client->dev */
- 	struct mutex mutex;
- 	int irq;
- 	u32 flags;
-@@ -82,6 +82,8 @@ struct bmi323_private_data {
- 	u16 gyr_conf_reg_value;
- 	u16 fifo_conf_reg_value;
- 	struct iio_trigger* trig[1];
-+	u8 fifo_data[2048]; /* FIFO data has an hardware size of 2048 bytes, let us just match that. */
-+	u8 fifo_count; /* number of FIFO frame aggregation that has been read */
- };
- 
- struct bmc150_accel_data {
--- 
-2.42.0
-
-
-From 6960737d17f2f8eb9629be812c34ff5e3e3eb280 Mon Sep 17 00:00:00 2001
-From: Denis <benato.denis96@gmail.com>
-Date: Thu, 21 Sep 2023 19:29:36 +0200
-Subject: [PATCH 11/18] debugging the read values
-
----
- drivers/iio/accel/bmc150-accel-core.c | 15 ++++++++-------
- 1 file changed, 8 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/iio/accel/bmc150-accel-core.c b/drivers/iio/accel/bmc150-accel-core.c
-index f02763e34cb8..89187e272720 100644
---- a/drivers/iio/accel/bmc150-accel-core.c
-+++ b/drivers/iio/accel/bmc150-accel-core.c
-@@ -3447,13 +3447,14 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 	}
- 	*/
- 
--	printk(KERN_WARNING "bmi323 pushing to buffer -- accel:[0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x] gyro: [0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x]",
--		(unsigned int)indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size + 0],
--		(unsigned int)indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size + 1],
--		(unsigned int)indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size + 2],
--		(unsigned int)indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size + 3],
--		(unsigned int)indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size + 4],
--		(unsigned int)indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size + 5]
-+	u16* debg = (u16*)&indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size];
-+	printk(KERN_WARNING "bmi323 pushing to buffer -- accel:[0x%x 0x%x 0x%x] gyro: [0x%x 0x%x 0x%x]",
-+		debg[0],
-+		debg[1],
-+		debg[2],
-+		debg[3],
-+		debg[4],
-+		debg[5]
- 		//indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size + 6]
- 	);
- 
--- 
-2.42.0
-
-
-From f323dd76a68b8bce1faa3cfdbe0f1bba34d26ee4 Mon Sep 17 00:00:00 2001
-From: Denis <benato.denis96@gmail.com>
-Date: Fri, 22 Sep 2023 02:29:16 +0200
-Subject: [PATCH 12/18] test if there is 2-padding
-
----
- drivers/iio/accel/bmc150-accel-core.c | 18 ++++++++++++++----
- 1 file changed, 14 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/iio/accel/bmc150-accel-core.c b/drivers/iio/accel/bmc150-accel-core.c
-index 89187e272720..11f538916041 100644
---- a/drivers/iio/accel/bmc150-accel-core.c
-+++ b/drivers/iio/accel/bmc150-accel-core.c
-@@ -3350,7 +3350,6 @@ static const struct iio_info bmi323_accel_info = {
- 	//.hwfifo_flush_to_buffer	= bmi323_fifo_flush,
- };
- 
--
- /**
-  * iio_simple_dummy_trigger_h() - the trigger handler function
-  * @irq: the interrupt number
-@@ -3376,12 +3375,17 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 
- 	const int frames_aggregate_size = (3 * 2) + (3 * 2);
- 
-+	u8 temp_data[16];
-+
- 	if (indio_data->bmi323.i2c_client != NULL) {
--		int read_block_ret = i2c_smbus_read_i2c_block_data(indio_data->bmi323.i2c_client, 0x16, frames_aggregate_size, &indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size]);
-+		int read_block_ret = i2c_smbus_read_i2c_block_data(indio_data->bmi323.i2c_client, 0x16, 2 + frames_aggregate_size, temp_data);
- 		if (read_block_ret != frames_aggregate_size) {
- 			printk(KERN_ERR "bmi323: i2c_smbus_read_i2c_block_data wrong return: expected %d bytes, %d arrived\n", frames_aggregate_size, read_block_ret);
- 			goto bmi323_irq_done;
- 		}
-+
-+		memcpy(&indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size], &temp_data[2], frames_aggregate_size);
-+		
- 	} else if (indio_data->bmi323.spi_client != NULL) {
- 		printk(KERN_CRIT "bmi323: SPI interface is not yet implemented.\n");
- 
-@@ -3448,13 +3452,19 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 	*/
- 
- 	u16* debg = (u16*)&indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size];
--	printk(KERN_WARNING "bmi323 pushing to buffer -- accel:[0x%x 0x%x 0x%x] gyro: [0x%x 0x%x 0x%x]",
-+	printk(KERN_WARNING "bmi323 pushing to buffer -- accel:[0x%x 0x%x 0x%x] gyro: [0x%x 0x%x 0x%x]\naccel:[0x%d 0x%d 0x%d] gyro: [0x%d 0x%d 0x%d]",
- 		debg[0],
- 		debg[1],
- 		debg[2],
- 		debg[3],
- 		debg[4],
--		debg[5]
-+		debg[5],
-+		(int)(*((s16*)&debg[0])),
-+		(int)(*((s16*)&debg[1])),
-+		(int)(*((s16*)&debg[2])),
-+		(int)(*((s16*)&debg[3])),
-+		(int)(*((s16*)&debg[4])),
-+		(int)(*((s16*)&debg[5]))
- 		//indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size + 6]
- 	);
- 
--- 
-2.42.0
-
-
-From 1a3d7902b98db4808564fd85ac98e8aeada25bf4 Mon Sep 17 00:00:00 2001
-From: Denis <benato.denis96@gmail.com>
-Date: Fri, 22 Sep 2023 02:42:43 +0200
-Subject: [PATCH 13/18] obviously...
-
----
- drivers/iio/accel/bmc150-accel-core.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/iio/accel/bmc150-accel-core.c b/drivers/iio/accel/bmc150-accel-core.c
-index 11f538916041..4413cece9913 100644
---- a/drivers/iio/accel/bmc150-accel-core.c
-+++ b/drivers/iio/accel/bmc150-accel-core.c
-@@ -3379,7 +3379,7 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 
- 	if (indio_data->bmi323.i2c_client != NULL) {
- 		int read_block_ret = i2c_smbus_read_i2c_block_data(indio_data->bmi323.i2c_client, 0x16, 2 + frames_aggregate_size, temp_data);
--		if (read_block_ret != frames_aggregate_size) {
-+		if (read_block_ret != (2 + frames_aggregate_size)) {
- 			printk(KERN_ERR "bmi323: i2c_smbus_read_i2c_block_data wrong return: expected %d bytes, %d arrived\n", frames_aggregate_size, read_block_ret);
- 			goto bmi323_irq_done;
- 		}
--- 
-2.42.0
-
-
-From 031325e8d9449508531d278460b1dec7154e22b5 Mon Sep 17 00:00:00 2001
-From: Denis <benato.denis96@gmail.com>
-Date: Fri, 22 Sep 2023 03:08:39 +0200
-Subject: [PATCH 14/18] moving/removing comments
-
----
- drivers/iio/accel/bmc150-accel-core.c | 68 +++++++++++----------------
- 1 file changed, 27 insertions(+), 41 deletions(-)
-
-diff --git a/drivers/iio/accel/bmc150-accel-core.c b/drivers/iio/accel/bmc150-accel-core.c
-index 4413cece9913..412b15a9b015 100644
---- a/drivers/iio/accel/bmc150-accel-core.c
-+++ b/drivers/iio/accel/bmc150-accel-core.c
-@@ -3397,16 +3397,6 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 		goto bmi323_irq_done;
- 	}
- 
--/*
--	printk(KERN_WARNING "bmi323 allocating memory for %d scan_bytes", (int)indio_dev->scan_bytes);
--
--	u16* data = kmalloc(1024, GFP_KERNEL);
--	if (!data)
--		goto bmi323_irq_done;
--
--	printk(KERN_WARNING "bmi323 memory allocated");
--*/
--
- 	/*
- 	CHANNEL			scan_index
- 	==========================
-@@ -3421,6 +3411,33 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 	TIMESTAMP			?
- 	*/
- 
-+	/*
-+	Tutorial:
-+$ modprobe iio-trig-sysfs
-+$ echo 0 > /sys/bus/iio/devices/iio_sysfs_trigger/add_trigger
-+
-+$ cd /sys/bus/iio/devices/iio\:device0
-+$ cat /sys/bus/iio/devices/iio\:device0/name
-+
-+$ ls /sys/bus/iio/devices/iio\:device0/scan_elements
-+in_voltage0_en  in_voltage0_index  in_voltage0_type  in_voltage1_en  in_voltage1_index  in_voltage1_type
-+$ ls /sys/bus/iio/devices/iio\:device0/trigger
-+current_trigger
-+$ ls /sys/bus/iio/devices/iio\:device0/buffer
-+enable  length  watermark
-+	
-+$ #example:
-+$ echo 1 > /sys/bus/iio/devices/iio\:device0/scan_elements/in_accel_x_en                         # Enable channel 0
-+$ echo 1 > /sys/bus/iio/devices/iio\:device0/scan_elements/in_anglvel_x_en                         # Enable channel 1
-+$ echo "sysfstrig0" > /sys/bus/iio/devices/iio\:device0/trigger/current_trigger               # Assign trig-bmi323-0 trigger to accellerometer
-+$ cat /sys/bus/iio/devices/iio\:device0/trigger/current_trigger
-+sysfstrig0
-+$ echo 1 > /sys/bus/iio/devices/iio\:device0/buffer/enable
-+
-+data acquisition:
-+$ echo 1 >  /sys/bus/iio/devices/trigger1/trigger_now
-+	*/
-+
- 	/*int ret = 0;
- 	u8 read_bytes[] = { 0xFF, 0xFF, 0xFF, 0xFF};
- 	int d_idx = 0;
-@@ -3475,10 +3492,6 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 
- 	printk(KERN_WARNING "bmi323 push done");
- 
--/*
--	kfree(data);
--*/
--
- bmi323_irq_done:
- 	printk(KERN_WARNING "bmi323 executing iio_trigger_notify_done");
- 
-@@ -3637,33 +3650,6 @@ int bmi323_iio_init(struct iio_dev *indio_dev) {
- 
- 	return 0;
- 
--	/*
--	Tutorial:
--$ modprobe iio-trig-sysfs
--$ echo 0 > /sys/bus/iio/devices/iio_sysfs_trigger/add_trigger
--
--$ cd /sys/bus/iio/devices/iio\:device0
--$ cat /sys/bus/iio/devices/iio\:device0/name
--
--$ ls /sys/bus/iio/devices/iio\:device0/scan_elements
--in_voltage0_en  in_voltage0_index  in_voltage0_type  in_voltage1_en  in_voltage1_index  in_voltage1_type
--$ ls /sys/bus/iio/devices/iio\:device0/trigger
--current_trigger
--$ ls /sys/bus/iio/devices/iio\:device0/buffer
--enable  length  watermark
--	
--$ #example:
--$ echo 1 > /sys/bus/iio/devices/iio\:device0/scan_elements/in_accel_x_en                         # Enable channel 0
--$ echo 1 > /sys/bus/iio/devices/iio\:device0/scan_elements/in_anglvel_x_en                         # Enable channel 1
--$ echo "sysfstrig0" > /sys/bus/iio/devices/iio\:device0/trigger/current_trigger               # Assign trig-bmi323-0 trigger to accellerometer
--$ cat /sys/bus/iio/devices/iio\:device0/trigger/current_trigger
--sysfstrig0
--$ echo 1 > /sys/bus/iio/devices/iio\:device0/buffer/enable
--
--data acquisition:
--$ echo 1 >  /sys/bus/iio/devices/trigger1/trigger_now
--	*/
--
- bmi323_iio_init_err_pm_cleanup:
- 	pm_runtime_dont_use_autosuspend(data->bmi323.dev);
- 	pm_runtime_disable(data->bmi323.dev);
--- 
-2.42.0
-
-
-From 1d789f6e6e10b123425c2dac46101806a9e5bff1 Mon Sep 17 00:00:00 2001
-From: Denis <benato.denis96@gmail.com>
-Date: Fri, 22 Sep 2023 03:09:36 +0200
-Subject: [PATCH 15/18] removed a space in a comment
-
----
- drivers/iio/accel/bmc150-accel.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/iio/accel/bmc150-accel.h b/drivers/iio/accel/bmc150-accel.h
-index 03c7c491e391..9a9ac86e9464 100644
---- a/drivers/iio/accel/bmc150-accel.h
-+++ b/drivers/iio/accel/bmc150-accel.h
-@@ -166,7 +166,7 @@ int bmi323_chip_check(struct bmi323_private_data *bmi323);
- int bmi323_chip_rst(struct bmi323_private_data *bmi323);
- 
- /**
-- * This function  MUST be called in probe and is responsible for registering the userspace sysfs.
-+ * This function MUST be called in probe and is responsible for registering the userspace sysfs.
-  *
-  * The indio_dev MUST have been allocated but not registered. This function will perform userspace registration.
-  *
--- 
-2.42.0
-
-
-From ba7c89b0e5484f03b93c1e4a455bcbb462c046bb Mon Sep 17 00:00:00 2001
-From: Denis <benato.denis96@gmail.com>
-Date: Sat, 23 Sep 2023 17:33:36 +0200
-Subject: [PATCH 16/18] read everything on the FIFO buffer when handler is
- triggered
-
----
- drivers/iio/accel/bmc150-accel-core.c | 277 ++++++++++++++++++++------
- drivers/iio/accel/bmc150-accel.h      |   6 +-
- 2 files changed, 218 insertions(+), 65 deletions(-)
-
-diff --git a/drivers/iio/accel/bmc150-accel-core.c b/drivers/iio/accel/bmc150-accel-core.c
-index 412b15a9b015..4739a1e2c589 100644
---- a/drivers/iio/accel/bmc150-accel-core.c
-+++ b/drivers/iio/accel/bmc150-accel-core.c
-@@ -501,76 +501,91 @@ static const struct bmi323_freq_accel_info {
- 	u8 hw_val;
- 	int val;
- 	int val2;
-+	s64 time_ns;
- } bmi323_accel_odr_map[] = {
- 	{
- 		.hw_val = BMC150_BMI323_ACCEL_ODR_0_78123_VAL,
- 		.val = 0,
- 		.val2 = 781230,
-+		.time_ns = 1280032769,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_ACCEL_ODR_1_5625_VAL,
- 		.val = 1,
- 		.val2 = 562600,
-+		.time_ns = 886522247,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_ACCEL_ODR_3_125_VAL,
- 		.val = 3,
- 		.val2 = 125000,
-+		.time_ns = 320000000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_ACCEL_ODR_6_25_VAL,
- 		.val = 6,
- 		.val2 = 250000,
-+		.time_ns = 160000000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_ACCEL_ODR_12_5_VAL,
- 		.val = 12,
- 		.val2 = 500000,
-+		.time_ns = 80000000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_ACCEL_ODR_25_VAL,
- 		.val = 25,
- 		.val2 = 0,
-+		.time_ns = 40000000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_ACCEL_ODR_50_VAL,
- 		.val = 50,
- 		.val2 = 0,
-+		.time_ns = 20000000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_ACCEL_ODR_100_VAL,
- 		.val = 100,
- 		.val2 = 0,
-+		.time_ns = 10000000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_ACCEL_ODR_200_VAL,
- 		.val = 200,
- 		.val2 = 0,
-+		.time_ns = 5000000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_ACCEL_ODR_400_VAL,
- 		.val = 400,
- 		.val2 = 0,
-+		.time_ns = 2500000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_ACCEL_ODR_800_VAL,
- 		.val = 800,
- 		.val2 = 0,
-+		.time_ns = 1250000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_ACCEL_ODR_1600_VAL,
- 		.val = 1600,
- 		.val2 = 0,
-+		.time_ns = 625000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_ACCEL_ODR_3200_VAL,
- 		.val = 3200,
- 		.val2 = 0,
-+		.time_ns = 312500,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_ACCEL_ODR_6400_VAL,
- 		.val = 6400,
- 		.val2 = 0,
-+		.time_ns = 156250,
- 	},
- };
- 
-@@ -578,76 +593,91 @@ static const struct bmi323_freq_gyro_info {
- 	u8 hw_val;
- 	int val;
- 	int val2;
-+	s64 time_ns;
- } bmi323_gyro_odr_map[] = {
- 	{
- 		.hw_val = BMC150_BMI323_GYRO_ODR_0_78123_VAL,
- 		.val = 0,
- 		.val2 = 781230,
-+		.time_ns = 1280032769,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_GYRO_ODR_1_5625_VAL,
- 		.val = 1,
- 		.val2 = 562600,
-+		.time_ns = 886522247,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_GYRO_ODR_3_125_VAL,
- 		.val = 3,
- 		.val2 = 125000,
-+		.time_ns = 320000000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_GYRO_ODR_6_25_VAL,
- 		.val = 6,
- 		.val2 = 250000,
-+		.time_ns = 160000000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_GYRO_ODR_12_5_VAL,
- 		.val = 12,
- 		.val2 = 500000,
-+		.time_ns = 80000000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_GYRO_ODR_25_VAL,
- 		.val = 25,
- 		.val2 = 0,
-+		.time_ns = 40000000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_GYRO_ODR_50_VAL,
- 		.val = 50,
- 		.val2 = 0,
-+		.time_ns = 20000000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_GYRO_ODR_100_VAL,
- 		.val = 100,
- 		.val2 = 0,
-+		.time_ns = 10000000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_GYRO_ODR_200_VAL,
- 		.val = 200,
- 		.val2 = 0,
-+		.time_ns = 5000000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_GYRO_ODR_400_VAL,
- 		.val = 400,
- 		.val2 = 0,
-+		.time_ns = 2500000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_GYRO_ODR_800_VAL,
- 		.val = 800,
- 		.val2 = 0,
-+		.time_ns = 1250000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_GYRO_ODR_1600_VAL,
- 		.val = 1600,
- 		.val2 = 0,
-+		.time_ns = 625000,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_GYRO_ODR_3200_VAL,
- 		.val = 3200,
- 		.val2 = 0,
-+		.time_ns = 312500,
- 	},
- 	{
- 		.hw_val = BMC150_BMI323_GYRO_ODR_6400_VAL,
- 		.val = 6400,
- 		.val2 = 0,
-+		.time_ns = 156250,
- 	},
- };
- 
-@@ -2701,7 +2731,15 @@ static int bmi323_buffer_preenable(struct iio_dev *indio_dev)
- {
- 	struct bmc150_accel_data *data = iio_priv(indio_dev);
- 
--	return bmi323_set_power_state(&data->bmi323, true);
-+	const int ret = bmi323_set_power_state(&data->bmi323, true);
-+
-+	if (ret == 0) {
-+		mutex_lock(&data->bmi323.mutex);
-+		data->bmi323.fifo_frame_time_diff_ns = (data->bmi323.acc_odr_time_ns >= data->bmi323.gyr_odr_time_ns) ? data->bmi323.acc_odr_time_ns : data->bmi323.gyr_odr_time_ns;
-+		mutex_unlock(&data->bmi323.mutex);
-+	}
-+
-+	return ret;
- }
- 
- static int bmi323_buffer_postenable(struct iio_dev *indio_dev)
-@@ -3149,6 +3187,7 @@ static int bmi323_write_raw(struct iio_dev *indio_dev,
- 
- 				for (int s = 0; s < ARRAY_SIZE(bmi323_accel_odr_map); ++s) {
- 					if ((bmi323_accel_odr_map[s].val == val) && (bmi323_accel_odr_map[s].val2 == val2)) {
-+						const u16 conf_backup = data->bmi323.acc_conf_reg_value;
- 						u8* le_raw_read = (u8*)&data->bmi323.acc_conf_reg_value;
- 						le_raw_read[0] &= (u8)0b11110000U;
- 						le_raw_read[0] |= ((u8)bmi323_gyro_odr_map[s].hw_val);
-@@ -3156,14 +3195,17 @@ static int bmi323_write_raw(struct iio_dev *indio_dev,
- 						was_sleep_modified = bmi323_set_power_state(&data->bmi323, true);
- 						if (was_sleep_modified != 0) {
- 							ret = was_sleep_modified;
-+							data->bmi323.acc_conf_reg_value = conf_backup;
- 							goto bmi323_write_raw_error_power;
- 						}
- 
- 						ret = bmi323_write_u16(&data->bmi323, BMC150_BMI323_ACC_CONF_REG, data->bmi323.acc_conf_reg_value);
- 						if (ret != 0) {
-+							data->bmi323.acc_conf_reg_value = conf_backup;
- 							goto bmi323_write_raw_error;
- 						}
- 
-+						data->bmi323.acc_odr_time_ns = bmi323_accel_odr_map[s].time_ns;
- 						bmi323_set_power_state(&data->bmi323, false);
- 						mutex_unlock(&data->bmi323.mutex);
- 						return 0;
-@@ -3180,6 +3222,7 @@ static int bmi323_write_raw(struct iio_dev *indio_dev,
- 
- 				for (int s = 0; s < ARRAY_SIZE(bmi323_gyro_odr_map); ++s) {
- 					if ((bmi323_gyro_odr_map[s].val == val) && (bmi323_gyro_odr_map[s].val2 == val2)) {
-+						const u16 conf_backup = data->bmi323.gyr_conf_reg_value;
- 						u8* le_raw_read = (u8*)&data->bmi323.gyr_conf_reg_value;
- 						le_raw_read[0] &= (u8)0b11110000U;
- 						le_raw_read[0] |= ((u8)bmi323_gyro_odr_map[s].hw_val);
-@@ -3187,14 +3230,17 @@ static int bmi323_write_raw(struct iio_dev *indio_dev,
- 						was_sleep_modified = bmi323_set_power_state(&data->bmi323, true);
- 						if (was_sleep_modified != 0) {
- 							ret = was_sleep_modified;
-+							data->bmi323.gyr_conf_reg_value = conf_backup;
- 							goto bmi323_write_raw_error_power;
- 						}
- 
- 						ret = bmi323_write_u16(&data->bmi323, BMC150_BMI323_GYR_CONF_REG, data->bmi323.gyr_conf_reg_value);
- 						if (ret != 0) {
-+							data->bmi323.gyr_conf_reg_value = conf_backup;
- 							goto bmi323_write_raw_error;
- 						}
- 
-+						data->bmi323.gyr_odr_time_ns = bmi323_gyro_odr_map[s].time_ns;
- 						bmi323_set_power_state(&data->bmi323, false);
- 						mutex_unlock(&data->bmi323.mutex);
- 						return 0;
-@@ -3331,24 +3377,40 @@ static int bmi323_read_avail(struct iio_dev *indio_dev,
- 	}
- }
- 
--static int bmi323_fifo_flush(struct iio_dev *indio_dev, unsigned samples)
-+static const struct iio_info bmi323_accel_info = {
-+	.read_raw		= bmi323_read_raw,
-+	.write_raw		= bmi323_write_raw,
-+	.read_avail		= bmi323_read_avail,
-+	//.hwfifo_flush_to_buffer	= bmi323_fifo_flush,
-+};
-+
-+static int bmi323_fifo_flush(struct iio_dev *indio_dev)
- {
- 	struct bmc150_accel_data *data = iio_priv(indio_dev);
- 	int ret;
- 
--	mutex_lock(&data->bmi323.mutex);
--	ret = __bmc150_accel_fifo_flush(indio_dev, samples, false);
--	mutex_unlock(&data->bmi323.mutex);
-+	ret = bmi323_write_u16(&data->bmi323, 0x37, cpu_to_le16(0x01));
- 
- 	return ret;
- }
- 
--static const struct iio_info bmi323_accel_info = {
--	.read_raw		= bmi323_read_raw,
--	.write_raw		= bmi323_write_raw,
--	.read_avail		= bmi323_read_avail,
--	//.hwfifo_flush_to_buffer	= bmi323_fifo_flush,
--};
-+static const u16 stub_value = 0x8000;
-+
-+#define ADVANCE_AT_REQ_OR_AVAIL(req, avail, dst, dst_offset, src, src_offset) \
-+if (req) {	\
-+	if (gyr_avail) { 	\
-+		memcpy((void*)(dst+dst_offset), (const void*)(src+src_offset), 2);	\
-+		src_offset += 2;	\
-+	} else {	\
-+		memcpy((void*)(dst+dst_offset), (const void*)((const u8*)(&stub_value)), 2);	\
-+	}	\
-+	dst_offset += 2;	\
-+} else {	\
-+	if (avail) {	\
-+		src_offset += 2;	\
-+	}	\
-+}	\
-+
- 
- /**
-  * iio_simple_dummy_trigger_h() - the trigger handler function
-@@ -3371,45 +3433,152 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 	struct iio_dev *indio_dev = pf->indio_dev;
- 	struct bmc150_accel_data *indio_data = iio_priv(indio_dev);
- 
-+	mutex_lock(&indio_data->bmi323.mutex);
-+
- 	printk(KERN_WARNING "bmi323 iio_dev fetched");
- 
--	const int frames_aggregate_size = (3 * 2) + (3 * 2);
-+	const bool temp_avail	= ((indio_data->bmi323.fifo_conf_reg_value & (cpu_to_le16(0b0000100000000000))) != 0);
-+	const bool gyr_avail	= ((indio_data->bmi323.fifo_conf_reg_value & (cpu_to_le16(0b0000010000000000))) != 0);
-+	const bool acc_avail 	= ((indio_data->bmi323.fifo_conf_reg_value & (cpu_to_le16(0b0000001000000000))) != 0);
-+	const bool time_avail	= ((indio_data->bmi323.fifo_conf_reg_value & (cpu_to_le16(0b0000000100000000))) != 0);
-+
-+	/* Calculate the number of bytes for a frame */
-+	const u16 frames_aggregate_size_in_words = /* 2 * */ (
-+		(temp_avail ? 1 : 0) +
-+		(gyr_avail ? 3 : 0) +
-+		(acc_avail ? 2 : 0) +
-+		(time_avail ? 1 : 0)
-+	);
- 
--	u8 temp_data[16];
-+	const s64 current_timestamp_ns = iio_get_time_ns(indio_dev);
- 
-+	u16 available_words = 0;
-+	bmi323_read_u16(&indio_data->bmi323, 0x15, &available_words);
-+	const u16 available_frame_aggregates = (le16_to_cpu(available_words)) / (frames_aggregate_size_in_words);
-+
-+	const s64 first_sample_timestamp_ns = current_timestamp_ns - ((indio_data->bmi323.fifo_frame_time_diff_ns) * (s64)(available_frame_aggregates));
-+
-+	u16 read_frame_aggregates = 0;
- 	if (indio_data->bmi323.i2c_client != NULL) {
--		int read_block_ret = i2c_smbus_read_i2c_block_data(indio_data->bmi323.i2c_client, 0x16, 2 + frames_aggregate_size, temp_data);
--		if (read_block_ret != (2 + frames_aggregate_size)) {
--			printk(KERN_ERR "bmi323: i2c_smbus_read_i2c_block_data wrong return: expected %d bytes, %d arrived\n", frames_aggregate_size, read_block_ret);
--			goto bmi323_irq_done;
--		}
-+		const int bytes_to_read = 2 + (2 * frames_aggregate_size_in_words * available_frame_aggregates);
-+		int read_block_ret = i2c_smbus_read_i2c_block_data(indio_data->bmi323.i2c_client, 0x16, bytes_to_read, &indio_data->bmi323.fifo_data[0]);
-+		if (read_block_ret < bytes_to_read) {
-+			if (read_block_ret < (2 + (2 * frames_aggregate_size_in_words))) {
-+				dev_err(&indio_data->bmi323.i2c_client->dev, "bmi323: i2c_smbus_read_i2c_block_data wrong return: expected %d bytes, %d arrived. Ingoring trigger.\n", bytes_to_read, read_block_ret);
-+				read_frame_aggregates = 0;
-+				goto bmi323_irq_done;
-+			} else {
-+				dev_warn(&indio_data->bmi323.i2c_client->dev, "bmi323: i2c_smbus_read_i2c_block_data wrong return: expected %d bytes, %d arrived. Doing what is possible with recovered data.\n", bytes_to_read, read_block_ret);
-+				read_frame_aggregates = (2 - read_block_ret) / (2 * frames_aggregate_size_in_words);
- 
--		memcpy(&indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size], &temp_data[2], frames_aggregate_size);
--		
-+				/* at this point FIFO buffer must be flushed to avoid interpreting data incorrectly the next trigger */
-+				const int flush_res = bmi323_fifo_flush(indio_dev);
-+				if (flush_res != 0) {
-+					dev_err(&indio_data->bmi323.i2c_client->dev, "bmi323: Could not flush FIFO (%d). Following buffer data might be corrupted.\n", flush_res);
-+				}
-+
-+				goto bmi323_irq_done;
-+			}
-+		} else {
-+			read_frame_aggregates = available_frame_aggregates;
-+		}
- 	} else if (indio_data->bmi323.spi_client != NULL) {
- 		printk(KERN_CRIT "bmi323: SPI interface is not yet implemented.\n");
- 
- 		/*
--		 * To whoever may need this: implementing this should be straightforward:
--		 * it's specular to the i2c part.
--		 */
-+		* To whoever may need this: implementing this should be straightforward:
-+		* it's specular to the i2c part.
-+		*/
- 
- 		goto bmi323_irq_done;
- 	}
- 
-+	/* This can hold one full block */
-+	u8 temp_data[16];
-+
- 	/*
--	CHANNEL			scan_index
--	==========================
--	
--	ACCEL_X				0
--	ACCEL_Y				1
--	ACCEL_Y				2
--	GYRO_X				3
--	GYRO_Y				4
--	GYRO_Z				5
--	TEMP				6
--	TIMESTAMP			?
-+	| CHANNEL		|	scan_index
-+	|============================
-+	|				|			|
-+	| ACCEL_X		|		0	|
-+	| ACCEL_Y		|		1	|
-+	| ACCEL_Y		|		2	|
-+	| GYRO_X		|		3	|
-+	| GYRO_Y		|		4	|
-+	| GYRO_Z		|		5	|
-+	| TEMP			|		6	|
-+	| TIMESTAMP		|		?	|
- 	*/
-+	bool accel_x_requested = false;
-+	bool accel_y_requested = false;
-+	bool accel_z_requested = false;
-+	bool gyro_x_requested = false;
-+	bool gyro_y_requested = false;
-+	bool gyro_z_requested = false;
-+	bool temp_requested = false;
-+
-+	int j = 0;
-+	for_each_set_bit(j, indio_dev->active_scan_mask, indio_dev->masklength) {
-+		switch (j) {
-+			case 0:
-+				accel_x_requested = true;
-+				break;
-+			case 1:
-+				accel_y_requested = true;
-+				break;
-+			case 2:
-+				accel_z_requested = true;
-+				break;
-+			case 3:
-+				gyro_x_requested = true;
-+				break;
-+			case 4:
-+				gyro_y_requested = true;
-+				break;
-+			case 5:
-+				gyro_z_requested = true;
-+				break;
-+			case 6:
-+				temp_requested = true;
-+				break;
-+			default:
-+				break;
-+		} 
-+	}
-+
-+	u16 current_fifo_buffer_offset_bytes = 2;
-+	for (u16 f = 0; f < read_frame_aggregates; ++f) {
-+		u16 current_sample_buffer_offset = 0;
-+
-+		ADVANCE_AT_REQ_OR_AVAIL(accel_x_requested, acc_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&indio_data->bmi323.fifo_data[0], current_fifo_buffer_offset_bytes);
-+		ADVANCE_AT_REQ_OR_AVAIL(accel_y_requested, acc_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&indio_data->bmi323.fifo_data[0], current_fifo_buffer_offset_bytes);
-+		ADVANCE_AT_REQ_OR_AVAIL(accel_z_requested, acc_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&indio_data->bmi323.fifo_data[0], current_fifo_buffer_offset_bytes);
-+		ADVANCE_AT_REQ_OR_AVAIL(gyro_x_requested, gyr_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&indio_data->bmi323.fifo_data[0], current_fifo_buffer_offset_bytes);
-+		ADVANCE_AT_REQ_OR_AVAIL(gyro_y_requested, gyr_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&indio_data->bmi323.fifo_data[0], current_fifo_buffer_offset_bytes);
-+		ADVANCE_AT_REQ_OR_AVAIL(gyro_z_requested, gyr_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&indio_data->bmi323.fifo_data[0], current_fifo_buffer_offset_bytes);
-+		ADVANCE_AT_REQ_OR_AVAIL(temp_requested, temp_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&indio_data->bmi323.fifo_data[0], current_fifo_buffer_offset_bytes);
-+		if (time_avail) {
-+			current_fifo_buffer_offset_bytes += 2;
-+		}
-+
-+		u16* debg = (u16*)&temp_data[0];
-+		printk(KERN_WARNING "bmi323 pushing to buffer -- accel: %d %d %d gyro: %d %d %d",
-+			(int)(*((s16*)&debg[0])),
-+			(int)(*((s16*)&debg[1])),
-+			(int)(*((s16*)&debg[2])),
-+			(int)(*((s16*)&debg[3])),
-+			(int)(*((s16*)&debg[4])),
-+			(int)(*((s16*)&debg[5]))
-+		);
-+
-+		iio_push_to_buffers_with_timestamp(
-+			indio_dev,
-+			&temp_data[0],
-+			first_sample_timestamp_ns + ((indio_data->bmi323.fifo_frame_time_diff_ns) * (s64)j)
-+		);
-+
-+		printk(KERN_WARNING "bmi323 push %d/%d done", (int)f, (int)read_frame_aggregates);
-+	}
- 
- 	/*
- 	Tutorial:
-@@ -3468,31 +3637,9 @@ data acquisition:
- 	}
- 	*/
- 
--	u16* debg = (u16*)&indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size];
--	printk(KERN_WARNING "bmi323 pushing to buffer -- accel:[0x%x 0x%x 0x%x] gyro: [0x%x 0x%x 0x%x]\naccel:[0x%d 0x%d 0x%d] gyro: [0x%d 0x%d 0x%d]",
--		debg[0],
--		debg[1],
--		debg[2],
--		debg[3],
--		debg[4],
--		debg[5],
--		(int)(*((s16*)&debg[0])),
--		(int)(*((s16*)&debg[1])),
--		(int)(*((s16*)&debg[2])),
--		(int)(*((s16*)&debg[3])),
--		(int)(*((s16*)&debg[4])),
--		(int)(*((s16*)&debg[5]))
--		//indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size + 6]
--	);
--
--	iio_push_to_buffers_with_timestamp(indio_dev, &indio_data->bmi323.fifo_data[indio_data->bmi323.fifo_count * frames_aggregate_size], iio_get_time_ns(indio_dev));
--
--	indio_data->bmi323.fifo_count += 1;
--	indio_data->bmi323.fifo_count %= 128;
--
--	printk(KERN_WARNING "bmi323 push done");
--
- bmi323_irq_done:
-+	mutex_unlock(&indio_data->bmi323.mutex);
-+
- 	printk(KERN_WARNING "bmi323 executing iio_trigger_notify_done");
- 
- 	/*
-@@ -3537,23 +3684,29 @@ int bmi323_iio_init(struct iio_dev *indio_dev) {
- 
- 	int ret = 0;
- 
-+	/* change to 8 for a default 200Hz sampling rate */
-+	const int gyr_odr_conf_idx = 7;
-+	const int acc_odr_conf_idx = 7;
-+
- 	mutex_init(&data->bmi323.mutex);
- 
--	data->bmi323.fifo_count = 0;
-+	data->bmi323.acc_odr_time_ns = bmi323_accel_odr_map[acc_odr_conf_idx].time_ns;
-+	data->bmi323.gyr_odr_time_ns = bmi323_gyro_odr_map[gyr_odr_conf_idx].time_ns;
- 
- 	// FIFO enabled for gyro, accel and temp. Overwrite older samples.
-+	//data->bmi323.fifo_conf_reg_value = cpu_to_le16((u16)0x0F00U);
- 	data->bmi323.fifo_conf_reg_value = cpu_to_le16((u16)0x0E00U);
- 
- 	// now set the (default) normal mode...
- 	// normal mode: 0x4000
- 	// no averaging: 0x0000
--	data->bmi323.acc_conf_reg_value = cpu_to_le16(0x4000 | ((u16)BMC150_BMI323_ACCEL_RANGE_2_VAL << (u16)4U) | ((u16)BMC150_BMI323_ACCEL_ODR_100_VAL));
-+	data->bmi323.acc_conf_reg_value = cpu_to_le16(0x4000 | ((u16)BMC150_BMI323_ACCEL_RANGE_2_VAL << (u16)4U) | ((u16)bmi323_accel_odr_map[acc_odr_conf_idx].hw_val));
- 	
- 	// now set the (default) normal mode...
- 	// normal mode: 0x4000
- 	// no averaging: 0x0000
- 	// filtering to ODR/2: 0x0000
--	data->bmi323.gyr_conf_reg_value = cpu_to_le16(0x4000 | ((u16)BMC150_BMI323_GYRO_RANGE_125_VAL << (u16)4U) | ((u16)BMC150_BMI323_ACCEL_ODR_100_VAL));
-+	data->bmi323.gyr_conf_reg_value = cpu_to_le16(0x4000 | ((u16)BMC150_BMI323_GYRO_RANGE_125_VAL << (u16)4U) | ((u16)bmi323_gyro_odr_map[gyr_odr_conf_idx].hw_val));
- 
- 	// the datasheet states that FIFO buffer MUST be enabled before enabling any sensor
- 	ret = bmi323_write_u16(&data->bmi323, BMC150_BMI323_FIFO_CONF_REG, data->bmi323.fifo_conf_reg_value);
-@@ -3618,8 +3771,6 @@ int bmi323_iio_init(struct iio_dev *indio_dev) {
- 		goto bmi323_iio_init_err_trigger_unregister;
- 	}
- 
--	
--
- 	/* Once orientation matrix is implemented switch this to iio_triggered_buffer_setup_ext. */
- 	ret = iio_triggered_buffer_setup(
- 		indio_dev,
-diff --git a/drivers/iio/accel/bmc150-accel.h b/drivers/iio/accel/bmc150-accel.h
-index 9a9ac86e9464..190331eadeaa 100644
---- a/drivers/iio/accel/bmc150-accel.h
-+++ b/drivers/iio/accel/bmc150-accel.h
-@@ -82,8 +82,10 @@ struct bmi323_private_data {
- 	u16 gyr_conf_reg_value;
- 	u16 fifo_conf_reg_value;
- 	struct iio_trigger* trig[1];
--	u8 fifo_data[2048]; /* FIFO data has an hardware size of 2048 bytes, let us just match that. */
--	u8 fifo_count; /* number of FIFO frame aggregation that has been read */
-+	u8 fifo_data[2050]; /* FIFO data has an hardware size of 2048 bytes, let us just match that and add the two dummy bytes at the beginning. */
-+	s64 fifo_frame_time_diff_ns;
-+	s64 acc_odr_time_ns;
-+	s64 gyr_odr_time_ns;
- };
- 
- struct bmc150_accel_data {
--- 
-2.42.0
-
-
-From 4f90af662255e105b0328b2f74e27ad207091c3e Mon Sep 17 00:00:00 2001
-From: Denis <benato.denis96@gmail.com>
-Date: Sat, 23 Sep 2023 18:28:02 +0200
-Subject: [PATCH 17/18] Read one block at a time
-
----
- drivers/iio/accel/bmc150-accel-core.c | 90 +++++++++++++--------------
- drivers/iio/accel/bmc150-accel.h      |  1 -
- 2 files changed, 45 insertions(+), 46 deletions(-)
-
-diff --git a/drivers/iio/accel/bmc150-accel-core.c b/drivers/iio/accel/bmc150-accel-core.c
-index 4739a1e2c589..0be4d2d577dd 100644
---- a/drivers/iio/accel/bmc150-accel-core.c
-+++ b/drivers/iio/accel/bmc150-accel-core.c
-@@ -3458,44 +3458,12 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 
- 	const s64 first_sample_timestamp_ns = current_timestamp_ns - ((indio_data->bmi323.fifo_frame_time_diff_ns) * (s64)(available_frame_aggregates));
- 
--	u16 read_frame_aggregates = 0;
--	if (indio_data->bmi323.i2c_client != NULL) {
--		const int bytes_to_read = 2 + (2 * frames_aggregate_size_in_words * available_frame_aggregates);
--		int read_block_ret = i2c_smbus_read_i2c_block_data(indio_data->bmi323.i2c_client, 0x16, bytes_to_read, &indio_data->bmi323.fifo_data[0]);
--		if (read_block_ret < bytes_to_read) {
--			if (read_block_ret < (2 + (2 * frames_aggregate_size_in_words))) {
--				dev_err(&indio_data->bmi323.i2c_client->dev, "bmi323: i2c_smbus_read_i2c_block_data wrong return: expected %d bytes, %d arrived. Ingoring trigger.\n", bytes_to_read, read_block_ret);
--				read_frame_aggregates = 0;
--				goto bmi323_irq_done;
--			} else {
--				dev_warn(&indio_data->bmi323.i2c_client->dev, "bmi323: i2c_smbus_read_i2c_block_data wrong return: expected %d bytes, %d arrived. Doing what is possible with recovered data.\n", bytes_to_read, read_block_ret);
--				read_frame_aggregates = (2 - read_block_ret) / (2 * frames_aggregate_size_in_words);
--
--				/* at this point FIFO buffer must be flushed to avoid interpreting data incorrectly the next trigger */
--				const int flush_res = bmi323_fifo_flush(indio_dev);
--				if (flush_res != 0) {
--					dev_err(&indio_data->bmi323.i2c_client->dev, "bmi323: Could not flush FIFO (%d). Following buffer data might be corrupted.\n", flush_res);
--				}
--
--				goto bmi323_irq_done;
--			}
--		} else {
--			read_frame_aggregates = available_frame_aggregates;
--		}
--	} else if (indio_data->bmi323.spi_client != NULL) {
--		printk(KERN_CRIT "bmi323: SPI interface is not yet implemented.\n");
--
--		/*
--		* To whoever may need this: implementing this should be straightforward:
--		* it's specular to the i2c part.
--		*/
--
--		goto bmi323_irq_done;
--	}
--
- 	/* This can hold one full block */
- 	u8 temp_data[16];
- 
-+	/* This is fifo data as read from the sensor */
-+	u8 fifo_data[32];
-+
- 	/*
- 	| CHANNEL		|	scan_index
- 	|============================
-@@ -3546,17 +3514,49 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 		} 
- 	}
- 
--	u16 current_fifo_buffer_offset_bytes = 2;
--	for (u16 f = 0; f < read_frame_aggregates; ++f) {
-+	u16 current_fifo_buffer_offset_bytes = 0;
-+	for (u16 f = 0; f < available_frame_aggregates; ++f) {
- 		u16 current_sample_buffer_offset = 0;
- 
--		ADVANCE_AT_REQ_OR_AVAIL(accel_x_requested, acc_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&indio_data->bmi323.fifo_data[0], current_fifo_buffer_offset_bytes);
--		ADVANCE_AT_REQ_OR_AVAIL(accel_y_requested, acc_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&indio_data->bmi323.fifo_data[0], current_fifo_buffer_offset_bytes);
--		ADVANCE_AT_REQ_OR_AVAIL(accel_z_requested, acc_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&indio_data->bmi323.fifo_data[0], current_fifo_buffer_offset_bytes);
--		ADVANCE_AT_REQ_OR_AVAIL(gyro_x_requested, gyr_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&indio_data->bmi323.fifo_data[0], current_fifo_buffer_offset_bytes);
--		ADVANCE_AT_REQ_OR_AVAIL(gyro_y_requested, gyr_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&indio_data->bmi323.fifo_data[0], current_fifo_buffer_offset_bytes);
--		ADVANCE_AT_REQ_OR_AVAIL(gyro_z_requested, gyr_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&indio_data->bmi323.fifo_data[0], current_fifo_buffer_offset_bytes);
--		ADVANCE_AT_REQ_OR_AVAIL(temp_requested, temp_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&indio_data->bmi323.fifo_data[0], current_fifo_buffer_offset_bytes);
-+		/* Read data from the raw device */
-+		if (indio_data->bmi323.i2c_client != NULL) {
-+			const int bytes_to_read = 2 + (2 * frames_aggregate_size_in_words);
-+			int read_block_ret = i2c_smbus_read_i2c_block_data(indio_data->bmi323.i2c_client, 0x16, bytes_to_read, &fifo_data[0]);
-+			if (read_block_ret < bytes_to_read) {
-+				dev_warn(&indio_data->bmi323.i2c_client->dev, "bmi323: i2c_smbus_read_i2c_block_data wrong return: expected %d bytes, %d arrived. Doing what is possible with recovered data.\n", bytes_to_read, read_block_ret);
-+
-+				/* at this point FIFO buffer must be flushed to avoid interpreting data incorrectly the next trigger */
-+				const int flush_res = bmi323_fifo_flush(indio_dev);
-+				if (flush_res != 0) {
-+					dev_err(&indio_data->bmi323.i2c_client->dev, "bmi323: Could not flush FIFO (%d). Following buffer data might be corrupted.\n", flush_res);
-+				}
-+
-+				goto bmi323_irq_done;
-+			}
-+
-+			/* Discard 2-bytes dummy data from I2C */
-+			current_fifo_buffer_offset_bytes = 2;
-+		} else if (indio_data->bmi323.spi_client != NULL) {
-+			printk(KERN_CRIT "bmi323: SPI interface is not yet implemented.\n");
-+
-+			/*
-+			* To whoever may need this: implementing this should be straightforward:
-+			* it's specular to the i2c part.
-+			*/
-+
-+			/* Discard 1-byte dummy data from SPI */
-+			current_fifo_buffer_offset_bytes = 1;
-+
-+			goto bmi323_irq_done;
-+		}
-+
-+		ADVANCE_AT_REQ_OR_AVAIL(accel_x_requested, acc_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&fifo_data[0], current_fifo_buffer_offset_bytes);
-+		ADVANCE_AT_REQ_OR_AVAIL(accel_y_requested, acc_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&fifo_data[0], current_fifo_buffer_offset_bytes);
-+		ADVANCE_AT_REQ_OR_AVAIL(accel_z_requested, acc_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&fifo_data[0], current_fifo_buffer_offset_bytes);
-+		ADVANCE_AT_REQ_OR_AVAIL(gyro_x_requested, gyr_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&fifo_data[0], current_fifo_buffer_offset_bytes);
-+		ADVANCE_AT_REQ_OR_AVAIL(gyro_y_requested, gyr_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&fifo_data[0], current_fifo_buffer_offset_bytes);
-+		ADVANCE_AT_REQ_OR_AVAIL(gyro_z_requested, gyr_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&fifo_data[0], current_fifo_buffer_offset_bytes);
-+		ADVANCE_AT_REQ_OR_AVAIL(temp_requested, temp_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&fifo_data[0], current_fifo_buffer_offset_bytes);
- 		if (time_avail) {
- 			current_fifo_buffer_offset_bytes += 2;
- 		}
-@@ -3577,7 +3577,7 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 			first_sample_timestamp_ns + ((indio_data->bmi323.fifo_frame_time_diff_ns) * (s64)j)
- 		);
- 
--		printk(KERN_WARNING "bmi323 push %d/%d done", (int)f, (int)read_frame_aggregates);
-+		printk(KERN_WARNING "bmi323 push %d/%d done", (int)f, (int)available_frame_aggregates);
- 	}
- 
- 	/*
-diff --git a/drivers/iio/accel/bmc150-accel.h b/drivers/iio/accel/bmc150-accel.h
-index 190331eadeaa..03e331f0f471 100644
---- a/drivers/iio/accel/bmc150-accel.h
-+++ b/drivers/iio/accel/bmc150-accel.h
-@@ -82,7 +82,6 @@ struct bmi323_private_data {
- 	u16 gyr_conf_reg_value;
- 	u16 fifo_conf_reg_value;
- 	struct iio_trigger* trig[1];
--	u8 fifo_data[2050]; /* FIFO data has an hardware size of 2048 bytes, let us just match that and add the two dummy bytes at the beginning. */
- 	s64 fifo_frame_time_diff_ns;
- 	s64 acc_odr_time_ns;
- 	s64 gyr_odr_time_ns;
--- 
-2.42.0
-
-
-From 7a0c3f4269dd1274f77b0fd0a52a7a46c6efcdc5 Mon Sep 17 00:00:00 2001
-From: Denis <benato.denis96@gmail.com>
-Date: Sat, 23 Sep 2023 19:03:43 +0200
-Subject: [PATCH 18/18] debugging...
-
----
- drivers/iio/accel/bmc150-accel-core.c | 114 +++++++++-----------------
- 1 file changed, 37 insertions(+), 77 deletions(-)
-
-diff --git a/drivers/iio/accel/bmc150-accel-core.c b/drivers/iio/accel/bmc150-accel-core.c
-index 0be4d2d577dd..fa61004ab5ff 100644
---- a/drivers/iio/accel/bmc150-accel-core.c
-+++ b/drivers/iio/accel/bmc150-accel-core.c
-@@ -3435,8 +3435,6 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 
- 	mutex_lock(&indio_data->bmi323.mutex);
- 
--	printk(KERN_WARNING "bmi323 iio_dev fetched");
--
- 	const bool temp_avail	= ((indio_data->bmi323.fifo_conf_reg_value & (cpu_to_le16(0b0000100000000000))) != 0);
- 	const bool gyr_avail	= ((indio_data->bmi323.fifo_conf_reg_value & (cpu_to_le16(0b0000010000000000))) != 0);
- 	const bool acc_avail 	= ((indio_data->bmi323.fifo_conf_reg_value & (cpu_to_le16(0b0000001000000000))) != 0);
-@@ -3450,13 +3448,17 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 		(time_avail ? 1 : 0)
- 	);
- 
--	const s64 current_timestamp_ns = iio_get_time_ns(indio_dev);
--
- 	u16 available_words = 0;
--	bmi323_read_u16(&indio_data->bmi323, 0x15, &available_words);
-+	const int available_words_read_res = bmi323_read_u16(&indio_data->bmi323, 0x15, &available_words);
-+	if (available_words_read_res != 0) {
-+		goto bmi323_irq_done;
-+	}
-+
- 	const u16 available_frame_aggregates = (le16_to_cpu(available_words)) / (frames_aggregate_size_in_words);
- 
--	const s64 first_sample_timestamp_ns = current_timestamp_ns - ((indio_data->bmi323.fifo_frame_time_diff_ns) * (s64)(available_frame_aggregates));
-+	const s64 current_timestamp_ns = iio_get_time_ns(indio_dev);
-+	const s64 fifo_frame_time_ns = indio_data->bmi323.fifo_frame_time_diff_ns;
-+	const s64 first_sample_timestamp_ns = current_timestamp_ns - (fifo_frame_time_ns * (s64)(available_frame_aggregates));
- 
- 	/* This can hold one full block */
- 	u8 temp_data[16];
-@@ -3550,6 +3552,7 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 			goto bmi323_irq_done;
- 		}
- 
-+		u16 timestamp = 0;
- 		ADVANCE_AT_REQ_OR_AVAIL(accel_x_requested, acc_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&fifo_data[0], current_fifo_buffer_offset_bytes);
- 		ADVANCE_AT_REQ_OR_AVAIL(accel_y_requested, acc_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&fifo_data[0], current_fifo_buffer_offset_bytes);
- 		ADVANCE_AT_REQ_OR_AVAIL(accel_z_requested, acc_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&fifo_data[0], current_fifo_buffer_offset_bytes);
-@@ -3558,90 +3561,46 @@ static irqreturn_t iio_bmi323_trigger_h(int irq, void *p)
- 		ADVANCE_AT_REQ_OR_AVAIL(gyro_z_requested, gyr_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&fifo_data[0], current_fifo_buffer_offset_bytes);
- 		ADVANCE_AT_REQ_OR_AVAIL(temp_requested, temp_avail, (u8*)&temp_data[0], current_sample_buffer_offset, (u8*)&fifo_data[0], current_fifo_buffer_offset_bytes);
- 		if (time_avail) {
-+			memcpy((u8*)&timestamp, (const u8*)(&fifo_data[current_fifo_buffer_offset_bytes]), 2);
- 			current_fifo_buffer_offset_bytes += 2;
- 		}
- 
- 		u16* debg = (u16*)&temp_data[0];
--		printk(KERN_WARNING "bmi323 pushing to buffer -- accel: %d %d %d gyro: %d %d %d",
--			(int)(*((s16*)&debg[0])),
--			(int)(*((s16*)&debg[1])),
--			(int)(*((s16*)&debg[2])),
--			(int)(*((s16*)&debg[3])),
--			(int)(*((s16*)&debg[4])),
--			(int)(*((s16*)&debg[5]))
--		);
-+		if (!time_avail) {
-+			printk(KERN_WARNING "bmi323 pushing to buffer %d/%d -- accel: %d %d %d gyro: %d %d %d",
-+				(int)(f + 1),
-+				(int)available_frame_aggregates,
-+				(int)(*((s16*)&debg[0])),
-+				(int)(*((s16*)&debg[1])),
-+				(int)(*((s16*)&debg[2])),
-+				(int)(*((s16*)&debg[3])),
-+				(int)(*((s16*)&debg[4])),
-+				(int)(*((s16*)&debg[5]))
-+			);
-+		} else {
-+			printk(KERN_WARNING "bmi323 pushing to buffer %d/%d -- time: %d accel: %d %d %d gyro: %d %d %d",
-+				(int)(f + 1),
-+				(int)available_frame_aggregates,
-+				(int)timestamp,
-+				(int)(*((s16*)&debg[0])),
-+				(int)(*((s16*)&debg[1])),
-+				(int)(*((s16*)&debg[2])),
-+				(int)(*((s16*)&debg[3])),
-+				(int)(*((s16*)&debg[4])),
-+				(int)(*((s16*)&debg[5]))
-+			);
-+		}
- 
- 		iio_push_to_buffers_with_timestamp(
- 			indio_dev,
- 			&temp_data[0],
--			first_sample_timestamp_ns + ((indio_data->bmi323.fifo_frame_time_diff_ns) * (s64)j)
-+			first_sample_timestamp_ns + (fifo_frame_time_ns * (s64)j)
- 		);
--
--		printk(KERN_WARNING "bmi323 push %d/%d done", (int)f, (int)available_frame_aggregates);
--	}
--
--	/*
--	Tutorial:
--$ modprobe iio-trig-sysfs
--$ echo 0 > /sys/bus/iio/devices/iio_sysfs_trigger/add_trigger
--
--$ cd /sys/bus/iio/devices/iio\:device0
--$ cat /sys/bus/iio/devices/iio\:device0/name
--
--$ ls /sys/bus/iio/devices/iio\:device0/scan_elements
--in_voltage0_en  in_voltage0_index  in_voltage0_type  in_voltage1_en  in_voltage1_index  in_voltage1_type
--$ ls /sys/bus/iio/devices/iio\:device0/trigger
--current_trigger
--$ ls /sys/bus/iio/devices/iio\:device0/buffer
--enable  length  watermark
--	
--$ #example:
--$ echo 1 > /sys/bus/iio/devices/iio\:device0/scan_elements/in_accel_x_en                         # Enable channel 0
--$ echo 1 > /sys/bus/iio/devices/iio\:device0/scan_elements/in_anglvel_x_en                         # Enable channel 1
--$ echo "sysfstrig0" > /sys/bus/iio/devices/iio\:device0/trigger/current_trigger               # Assign trig-bmi323-0 trigger to accellerometer
--$ cat /sys/bus/iio/devices/iio\:device0/trigger/current_trigger
--sysfstrig0
--$ echo 1 > /sys/bus/iio/devices/iio\:device0/buffer/enable
--
--data acquisition:
--$ echo 1 >  /sys/bus/iio/devices/trigger1/trigger_now
--	*/
--
--	/*int ret = 0;
--	u8 read_bytes[] = { 0xFF, 0xFF, 0xFF, 0xFF};
--	int d_idx = 0;
--	u8 reg = 0x03;
--	for (u32 i = 0; i < indio_dev->masklength; ++i) {
--		if (((0x0001U << i) & (*indio_dev->active_scan_mask)) != 0) {
--			
--			struct i2c_client*  i2c_dev = indio_data->bmi323.i2c_client;
--			if (i2c_dev != NULL) {
--				ret = i2c_smbus_read_i2c_block_data(i2c_dev, reg + i, sizeof(read_bytes), &read_bytes[0]);
--				if (ret != 4) {
--					goto bmi323_irq_done;
--				}
--
--				data[d_idx++] = ((u16)read_bytes[2] << (u16)8U) | ((u16)read_bytes[3]);
--			} else {
--				// TODO: what about SPI?
--				goto bmi323_irq_done;
--			}
--		}
--	}*/
--
--	/*
--	int j = 0, i = 0;
--	for_each_set_bit(j, indio_dev->active_scan_mask, indio_dev->masklength) {
--		printk(KERN_WARNING "bmi323 reading %d of %d...", (int)j, (int)indio_dev->masklength);
--		data[i++] = cpu_to_le16(0x8000);
- 	}
--	*/
- 
- bmi323_irq_done:
- 	mutex_unlock(&indio_data->bmi323.mutex);
- 
--	printk(KERN_WARNING "bmi323 executing iio_trigger_notify_done");
--
- 	/*
- 	 * Tell the core we are done with this trigger and ready for the
- 	 * next one.
-@@ -3695,7 +3654,8 @@ int bmi323_iio_init(struct iio_dev *indio_dev) {
- 
- 	// FIFO enabled for gyro, accel and temp. Overwrite older samples.
- 	//data->bmi323.fifo_conf_reg_value = cpu_to_le16((u16)0x0F00U);
--	data->bmi323.fifo_conf_reg_value = cpu_to_le16((u16)0x0E00U);
-+	//data->bmi323.fifo_conf_reg_value = cpu_to_le16((u16)0x0E00U);
-+	data->bmi323.fifo_conf_reg_value = cpu_to_le16((u16)0x0F00U);
- 
- 	// now set the (default) normal mode...
- 	// normal mode: 0x4000
 -- 
 2.42.0
 
