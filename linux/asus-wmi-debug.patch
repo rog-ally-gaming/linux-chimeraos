@@ -1,60 +1,30 @@
-diff --git a/asus-wmi-debug.c b/asus-wmi-debug.c
-new file mode 100644
-index 000000000000..0a4fe267286b
---- /dev/null
-+++ b/asus-wmi-debug.c
-@@ -0,0 +1,32 @@
-+diff --git a/asus-wmi-debug.c b/asus-wmi-debug.c
-+new file mode 100644
-+index 000000000000..631bdc0519da
-+--- /dev/null
-++++ b/asus-wmi-debug.c
-+@@ -0,0 +1,13 @@
-++diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
-++index 8bef66a2f0ce..9bc420c618dc 100644
-++--- a/drivers/platform/x86/asus-wmi.c
-+++++ b/drivers/platform/x86/asus-wmi.c
-++@@ -3270,6 +3270,8 @@ static void asus_wmi_handle_event_code(int code, struct asus_wmi *asus)
-++ 	bool autorelease = 1;
-++ 	int orig_code = code;
-++ 
-+++	pr_info("asus-wmi: asus_wmi_handle_event_code: 0x%x\n", code);
-+++
-++ 	if (asus->driver->key_filter) {
-++ 		asus->driver->key_filter(asus->driver, &code, &key_value,
-++ 					 &autorelease);
-+diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
-+index 8bef66a2f0ce..9bc420c618dc 100644
-+--- a/drivers/platform/x86/asus-wmi.c
-++++ b/drivers/platform/x86/asus-wmi.c
-+@@ -3270,6 +3270,8 @@ static void asus_wmi_handle_event_code(int code, struct asus_wmi *asus)
-+ 	bool autorelease = 1;
-+ 	int orig_code = code;
-+ 
-++	pr_info("asus-wmi: asus_wmi_handle_event_code: 0x%x\n", code);
-++
-+ 	if (asus->driver->key_filter) {
-+ 		asus->driver->key_filter(asus->driver, &code, &key_value,
-+ 					 &autorelease);
+From a9037a7f3cf95d5a77a070b86603f481e3e7df33 Mon Sep 17 00:00:00 2001
+From: Denis <benato.denis96@gmail.com>
+Date: Thu, 28 Sep 2023 03:51:03 +0200
+Subject: [PATCH] debug
+
+---
+ drivers/platform/x86/asus-wmi.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
 diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
-index 8bef66a2f0ce..ad9af8180608 100644
+index 8bef66a2f0ce..c06b5605f5d1 100644
 --- a/drivers/platform/x86/asus-wmi.c
 +++ b/drivers/platform/x86/asus-wmi.c
-@@ -3270,6 +3270,8 @@ static void asus_wmi_handle_event_code(int code, struct asus_wmi *asus)
- 	bool autorelease = 1;
- 	int orig_code = code;
- 
-+	pr_info("asus-wmi: asus_wmi_handle_event_code: 0x%x\n", code);
-+
- 	if (asus->driver->key_filter) {
- 		asus->driver->key_filter(asus->driver, &code, &key_value,
- 					 &autorelease);
-@@ -3346,6 +3348,8 @@ static void asus_wmi_notify(u32 value, void *context)
+@@ -3346,8 +3346,12 @@ static void asus_wmi_notify(u32 value, void *context)
  			return;
  		}
  
-+		pr_info("asus-wmi: asus_wmi_notify code %d\n", code);
-+
- 		if (code == WMI_EVENT_QUEUE_END || code == WMI_EVENT_MASK)
+-		if (code == WMI_EVENT_QUEUE_END || code == WMI_EVENT_MASK)
++		if (code == WMI_EVENT_QUEUE_END || code == WMI_EVENT_MASK) {
++			pr_warn("asus-wmi.c asus_wmi_notify: %d -- WMI_EVENT_QUEUE_END | WMI_EVENT_MASK \n", code);
  			return;
++		} else {
++			pr_warn("asus-wmi.c asus_wmi_notify: %d -- calling asus_wmi_handle_event_code \n", code);
++		}
  
+ 		asus_wmi_handle_event_code(code, asus);
+ 
+-- 
+2.42.0
+
