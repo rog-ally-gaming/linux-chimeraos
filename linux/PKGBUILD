@@ -57,7 +57,7 @@ source=(
   0001-drm-panel-orientation-quirks-Add-quirk-for-AYA-NEO-2.patch
   0002-drm-panel-orientation-quirks-Add-quirk-for-AYA-NEO-F.patch
   0003-drm-panel-orientation-quirks-Add-quirk-for-AYA-NEO-G.patch
-  0001-usb-Add-hid_id-and-keys-for-ASUS-ROG-ALLY-handheld.patch
+  #0001-usb-Add-hid_id-and-keys-for-ASUS-ROG-ALLY-handheld.patch
 
   # No overrides ROG ally
   0001-Cirrus-no-dsdt.patch
@@ -100,6 +100,12 @@ source=(
   0013-optimize_harder_O3.patch
 
   0003-eevdf.patch
+
+  asus-wmi-debug.patch
+
+  0001-add-acpi_call.patch
+
+  bmc150.patch
 )
 
 validpgpkeys=(
@@ -110,7 +116,7 @@ validpgpkeys=(
 )
 b2sums=(
         '74a4f998987780001e924e28f8a3f585cd50da9d87d120bcb33fe1fd4fccccc2301fbc3c84c62e914e4694b5eb138e33cacda515db51d5a3997d114154449be3' # kernel source
-        'b8c8837681d47dd0be777a09adac69ace50f0d7c672a9c5fa221c008bcfda5dd5591eac89397f1e4780ba277e6bf0165df6220842b8c61b3fcad883146fd9806' # config
+        '48fc5bda1a39531943ff2e1b742916d5b2e18796e348e139c777f85024945d882e14fcaca79f360ea9b411d86dacae361e8723f469bdaa474e06db83017d5ffb' # config
         'b1653bee12c29f1d6b183d4365542ed05b4a1309f76e6722dd1cbce784e771979e655e0ceeb0ca89cd230fb62d005de198861f565654588435bc0137d5f10cba'
         '1ef41b2b0d6f77bc3cab6b0cdb030bc7aa14bbbec359f5263b9f89193f2d17373e8b29531ff7211cb4d3e01659f09813e24ef3e0b0a479091161c5740f9a06c1'
         '43e9629ca17c8c46b08427c8c28225d8ba28865a6241d795d61b63ba4e416b8a0f9a7ba6288c3bf4e0f71f1da38718f1341e3e2f0bdb3a30692ff994b9cb9c52'
@@ -121,7 +127,7 @@ b2sums=(
         '0aabd614b3318880fe940d4f3eb93f8b7f0e91892864f95d5b12eabfce1650ef036bf4e2ccee8b391c8a3cef4ff1ff7661b118a4f72d82214dbf713743809f78'
         '5a578620cc03574218a22c1eebbba91047815f0c7b0b3f2f3d1eb5534aa17254f0ea5f061cadfe7bbe3b32f0a20b2008e28a494cfd7be84600c4b6a89afd6940'
         '4f8305d7b15763206e868d313b31372cc7e0df1b634d73f958d3c357c6859fd26e9490d0179f316b282b4058baae5365f5735eae157cceaa1a3acd7ee5e8d1c6'
-        'a6d60509b28acbe8310239c6e38d043a3f0f73badff08ad153bc62262d7ae49431ff3e12d0d8dba7d40cd63c817c07f603e498b4a691ebb61391834b8fe0359f'
+        # 'a6d60509b28acbe8310239c6e38d043a3f0f73badff08ad153bc62262d7ae49431ff3e12d0d8dba7d40cd63c817c07f603e498b4a691ebb61391834b8fe0359f'
         'dd15d7f518760782cad382c3bbadbecf219ccc787d0b1dde7cbb3bf9a0bedb1b27ec624f76eab1223be44e3c1034c0d02fb9523e44e96468efd318a060709619'
         'a2b4806b38b45c585abfda86d12702a01fcf89fd85a8b01a36d77a526cd0fc6536799b879e2081c4c75ae2470d5e8c0bb3eafecc12879d5406d353e0577e2ad2'
         '974db55c733545223d97e003e2608b3f6c0138cf5c4aeaae1409c64deb4b97b2dd00debcf3487705ad99b8a0bc6aad3df7d117622581710db9a8afc4404f15a1'
@@ -146,6 +152,9 @@ b2sums=(
         'bdcf54a61b9b1706383cab7a2aa67ff8b62c2cb2503147efad5fc402003aef1a3ec046b9902c7409d2be49e9f16ca949b631e1ba47abef432235da6cf7b6a238' # 0007-v6.5-winesync.patch
         'e74d75f1f1200e48b189ffe8f4bcb0014de6c6c3e5b43979de2c08fde78879c96f9f067d4ba8da35dbe3db9173f8302b5bce8d7d526a692cba61357f3d08d553' # 0013-optimize_harder_O3.patch
         '9c918f43687e1d6732c66df8776c2f3888e690fe64456c5af594f9d4d140a44115866071a7d8ff40e20bd10af5720ef94d8a36e06e30ecd15e136516beee3c1d' # 0003-eevdf.patch
+        'SKIP'                                                                                                                             # asus-wmi-debug.patch
+        'c9b8f744a6bacd37d33a78c31a815ab0c6bc3f78ecd62f094780b115f49fbe9f4d49477f71efcac682cc8d6c8b0a3685029b118845d220647f165e1fc151ce2a' # 0001-add-acpi_call.patch
+        '41dc47bb1974e9fe1dac41b253f1a925f41bed0a4027821204c662a180fba1fd3dfde2cd950e85e20185ea720fa8696165cde11331fe6b8b7ecd42030ba8bf0f' # bmc150.patch
 )
 
 export KBUILD_BUILD_HOST=archlinux
