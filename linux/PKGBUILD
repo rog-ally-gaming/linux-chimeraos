@@ -51,24 +51,15 @@ source=(
   # Some patches from TKG Team
   0001-mm-Support-soft-dirty-flag-reset-for-VA-range.patch
 
+  0001-add-hid_id-and-keys-for-ASUS-ROG-ALLY.patch
+
   # No overrides ROG ally
-  #0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
+  0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
+
+  0001-add-GPU-reset-sysfs-event.patch
 
   #HDR patches
   0001-HDR.patch
-
-  # Fixup sleep cs35l41
-  #0001-ALSA-cs35l41-Use-mbox-command-to-enable-speaker-outp.patch
-  #0002-ALSA-cs35l41-Poll-for-Power-Up-Down-rather-than-wait.patch
-  #0003-ALSA-hda-cs35l41-Check-mailbox-status-of-pause-comma.patch
-  #0004-ALSA-hda-cs35l41-Ensure-we-correctly-re-sync-regmap-.patch
-  #0005-ALSA-hda-cs35l41-Ensure-we-pass-up-any-errors-during.patch
-  #0006-ALSA-hda-cs35l41-Move-Play-and-Pause-into-separate-f.patch
-  #0007-ALSA-hda-hda_component-Add-pre-and-post-playback-hoo.patch
-  #0008-ALSA-hda-cs35l41-Use-pre-and-post-playback-hooks.patch
-  #0009-ALSA-hda-cs35l41-Rework-System-Suspend-to-ensure-cor.patch
-  #0010-ALSA-hda-cs35l41-Add-device_link-between-HDA-and-cs3.patch
-  #0011-ALSA-hda-cs35l41-Ensure-amp-is-only-unmuted-during-p.patch
 
   0012-misc-additions.patch
 
@@ -104,7 +95,9 @@ b2sums=(
         #'074fb4357c67bfb5edb4db2c0e78db56d3642caae90da80f962fdecf52a6161c7c43c5c5de15914520441fdc912be9ec15c22e4829abb27363d68b4a8eef41cb' # 0003-tpm-Enable-hwrng-only-for-Pluton-on-AMD-CPUs.patch
         '8bde0d883cb8127f292d591cc0f0cf6378132765b0fc8ff1760cf14c1673436fbd73768b81b22355ee5d58042149ef6cefec6788f0142cfee8bf217df70d16b8' # 0004-sphinx-kfigure.py-Convert-outdir-to-str-before-using.patch
         'e2e364387efe34a1a392cdf9801b6f164d84de428edd8e43ccb1f12690019078db297b9dcf61a5dd4a83ca40dca8f25d9117e240c1ffd8b969d81e4dc6e972fd' # 0001-mm-Support-soft-dirty-flag-reset-for-VA-range.patch
-        #'a2b4806b38b45c585abfda86d12702a01fcf89fd85a8b01a36d77a526cd0fc6536799b879e2081c4c75ae2470d5e8c0bb3eafecc12879d5406d353e0577e2ad2' # 0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
+        '92ba9d2881ac68dba158bbb331262f760cf0e9a5e69caf4e20e86fb44ab8cddb676d8e04f2ddf808e1e13dbf3399e08923a5f091508966b8fc71fb2b251e55d6' # 0001-add-hid_id-and-keys-for-ASUS-ROG-ALLY.patch
+        '448cb3800afb17d01c7d37ce9d11a75ec4eb05d968299cf6d86f50f0ba22f7670315a9ac5160348a12be3a83906e95a024466cc854a366dda14289a3b92a6aaf' # 0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
+        '6a4d78d637ba0fdb5a43cb2a21504829d721838f95a18ff96aaec7fd2f66898164827fbcb983a9d0fabbfd4d96982ecdd531e464cdc50a1b79d349e2c506b1c4' # 0001-add-GPU-reset-sysfs-event.patch
         '6490d86b359c0e5484eab77ab5650d0a8d24ab0e17977c8f2202169dfadcd5462db1d26df7e734b07eb7010b2832ef4937220fb7b86cb1a173d851212bf7ebc9' # 0001-HDR.patch
 
         #'a2549254930b31e2b1eea76120c74a61787abdb845d46a8532a02e1dde785a236708f3332555a3af839235d54de1146f86f0bf60b5d86d3af2ec044ecc88886a' # 0001-ALSA-cs35l41-Use-mbox-command-to-enable-speaker-outp.patch
