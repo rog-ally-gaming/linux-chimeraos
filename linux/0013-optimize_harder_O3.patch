@@ -1,38 +1,27 @@
-From 791eb10459a8d919b4754ce5cab9cde5b7a8025c Mon Sep 17 00:00:00 2001
-From: Denis <benato.denis96@gmail.com>
-Date: Mon, 28 Aug 2023 21:12:25 +0200
-Subject: [PATCH] Optimize harder O3
-
----
- Makefile     | 6 +++---
- init/Kconfig | 4 ++--
- 2 files changed, 5 insertions(+), 5 deletions(-)
-
 diff --git a/Makefile b/Makefile
-index 2fdd8b40b7e0..3eab6f768441 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -449,7 +449,7 @@ HOSTRUSTC = rustc
+@@ -442,7 +442,7 @@ endif
  HOSTPKG_CONFIG	= pkg-config
- 
+
  KBUILD_USERHOSTCFLAGS := -Wall -Wmissing-prototypes -Wstrict-prototypes \
 -			 -O2 -fomit-frame-pointer -std=gnu11
 +			 -O3 -fomit-frame-pointer -std=gnu11
  KBUILD_USERCFLAGS  := $(KBUILD_USERHOSTCFLAGS) $(USERCFLAGS)
  KBUILD_USERLDFLAGS := $(USERLDFLAGS)
- 
-@@ -470,7 +470,7 @@ export rust_common_flags := --edition=2021 \
+
+@@ -474,7 +474,7 @@ endif
  			    -Wclippy::dbg_macro
- 
+
  KBUILD_HOSTCFLAGS   := $(KBUILD_USERHOSTCFLAGS) $(HOST_LFS_CFLAGS) $(HOSTCFLAGS)
 -KBUILD_HOSTCXXFLAGS := -Wall -O2 $(HOST_LFS_CFLAGS) $(HOSTCXXFLAGS)
 +KBUILD_HOSTCXXFLAGS := -Wall -O3 $(HOST_LFS_CFLAGS) $(HOSTCXXFLAGS)
  KBUILD_HOSTRUSTFLAGS := $(rust_common_flags) -O -Cstrip=debuginfo \
  			-Zallow-features= $(HOSTRUSTFLAGS)
  KBUILD_HOSTLDFLAGS  := $(HOST_LFS_LDFLAGS) $(HOSTLDFLAGS)
-@@ -829,7 +829,7 @@ KBUILD_CFLAGS	+= $(call cc-disable-warning, format-overflow)
- KBUILD_CFLAGS	+= $(call cc-disable-warning, address-of-packed-member)
- 
+@@ -757,7 +757,7 @@ KBUILD_CFLAGS       += $(call cc-disable-warning, format-overflow)
+ KBUILD_CFLAGS  += $(call cc-disable-warning, address-of-packed-member)
+
  ifdef CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE
 -KBUILD_CFLAGS += -O2
 +KBUILD_CFLAGS += -O3
@@ -40,12 +29,11 @@ index 2fdd8b40b7e0..3eab6f768441 100644
  else ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
  KBUILD_CFLAGS += -Os
 diff --git a/init/Kconfig b/init/Kconfig
-index f7f65af4ee12..573bdd7eca5f 100644
 --- a/init/Kconfig
 +++ b/init/Kconfig
-@@ -1361,10 +1361,10 @@ choice
+@@ -1401,10 +1401,10 @@ choice
  	default CC_OPTIMIZE_FOR_PERFORMANCE
- 
+
  config CC_OPTIMIZE_FOR_PERFORMANCE
 -	bool "Optimize for performance (-O2)"
 +	bool "Optimize for performance (-O3)"
@@ -54,8 +42,5 @@ index f7f65af4ee12..573bdd7eca5f 100644
 -	  with the "-O2" compiler flag for best performance and most
 +	  with the "-O3" compiler flag for best performance and most
  	  helpful compile-time warnings.
- 
- config CC_OPTIMIZE_FOR_SIZE
--- 
-2.42.0
 
+ config CC_OPTIMIZE_FOR_SIZE
