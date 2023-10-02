@@ -2,11 +2,11 @@
 # Maintainer: Joaquín I. Aramendía (samsagax) <samsagaxg@gmail.com>
 
 pkgbase=linux-neroreflex
-pkgver=6.6.0.rc3.nrflx1
+pkgver=6.6.0.rc4.nrflx1
 pkgrel=1
 pkgdesc='Linux NeroReflex'
 #_srctag=${pkgver%.*}
-_srctag=6.6-rc3
+_srctag=6.6-rc4
 url="https://github.com/NeroReflex/linux-chimeraos"
 arch=(x86_64)
 license=(GPL2)
@@ -45,40 +45,40 @@ source=(
   # Arch Linux patches
   0001-ZEN-Add-sysctl-and-CONFIG-to-disallow-unprivileged-C.patch
   #0003-tpm-Enable-hwrng-only-for-Pluton-on-AMD-CPUs.patch
-  0004-sphinx-kfigure.py-Convert-outdir-to-str-before-using.patch
+  #0004-sphinx-kfigure.py-Convert-outdir-to-str-before-using.patch
 
   # ChimeraOS specific patches
   # Some patches from TKG Team
-  0001-mm-Support-soft-dirty-flag-reset-for-VA-range.patch
+  #0001-mm-Support-soft-dirty-flag-reset-for-VA-range.patch
 
-  0001-add-hid_id-and-keys-for-ASUS-ROG-ALLY.patch
+  #0001-add-hid_id-and-keys-for-ASUS-ROG-ALLY.patch
 
   # No overrides ROG ally
-  0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
+  #0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
 
-  0001-add-GPU-reset-sysfs-event.patch
+  #0001-add-GPU-reset-sysfs-event.patch
 
   #HDR patches
-  0001-HDR.patch
+  #0001-HDR.patch
 
-  0012-misc-additions.patch
+  #0012-misc-additions.patch
 
-  0007-fsync1_via_futex_waitv.patch
+  #0007-fsync1_via_futex_waitv.patch
 
-  0006-add-acs-overrides_iommu.patch
+  #0006-add-acs-overrides_iommu.patch
 
   # More CPU architectures
   more-uarches-for-kernel-5.17+.patch
 
-  0007-winesync.patch
+  #0007-winesync.patch
 
   0013-optimize_harder_O3.patch
 
   #asus-wmi-debug.patch
 
-  0001-add-acpi_call.patch
+  #0001-add-acpi_call.patch
 
-  bmc150.patch
+  #bmc150.patch
 )
 
 validpgpkeys=(
@@ -88,39 +88,24 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-        'dac0cacfaf3f26222513754e74481edaadfba06ff1a51fe64ae975911d45a8d9eaea7bfccb69366463695f37b0c29d3380ba7b9ab979920826c39d9937785582' # kernel source
-        '611cd08b040bab951bc5e0c308594a43030ae6d7b57030616d09c4150ae35a34563a01b6ad592b8f61bc5878644b25f5fb78591e51bbd213b15c425128263a7e' # config
-        'b1653bee12c29f1d6b183d4365542ed05b4a1309f76e6722dd1cbce784e771979e655e0ceeb0ca89cd230fb62d005de198861f565654588435bc0137d5f10cba' # config-chimera
+        'f21104f155ded6711007895cfa1081dc629304234781f19f187bb39006770e05aa9bfb1c9637d3f755fe47e867f448a8aaba15e528224c1d0e83cc922b310518' # kernel source
+        'SKIP' # config
+        'SKIP' # config-chimera
         '35428a30c1e4de8c78c418b797d99f8bc58e7a2d57d488e47a8f3ea7fb8e1e9af4dce85b93333abcf1dfcf77ed34c1b5261c9db58b5c6661edf9fd34cac67d8d' # 0001-ZEN-Add-sysctl-and-CONFIG-to-disallow-unprivileged-C.patch
-        #'074fb4357c67bfb5edb4db2c0e78db56d3642caae90da80f962fdecf52a6161c7c43c5c5de15914520441fdc912be9ec15c22e4829abb27363d68b4a8eef41cb' # 0003-tpm-Enable-hwrng-only-for-Pluton-on-AMD-CPUs.patch
-        '8bde0d883cb8127f292d591cc0f0cf6378132765b0fc8ff1760cf14c1673436fbd73768b81b22355ee5d58042149ef6cefec6788f0142cfee8bf217df70d16b8' # 0004-sphinx-kfigure.py-Convert-outdir-to-str-before-using.patch
-        'e2e364387efe34a1a392cdf9801b6f164d84de428edd8e43ccb1f12690019078db297b9dcf61a5dd4a83ca40dca8f25d9117e240c1ffd8b969d81e4dc6e972fd' # 0001-mm-Support-soft-dirty-flag-reset-for-VA-range.patch
-        '92ba9d2881ac68dba158bbb331262f760cf0e9a5e69caf4e20e86fb44ab8cddb676d8e04f2ddf808e1e13dbf3399e08923a5f091508966b8fc71fb2b251e55d6' # 0001-add-hid_id-and-keys-for-ASUS-ROG-ALLY.patch
-        '448cb3800afb17d01c7d37ce9d11a75ec4eb05d968299cf6d86f50f0ba22f7670315a9ac5160348a12be3a83906e95a024466cc854a366dda14289a3b92a6aaf' # 0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
-        '6a4d78d637ba0fdb5a43cb2a21504829d721838f95a18ff96aaec7fd2f66898164827fbcb983a9d0fabbfd4d96982ecdd531e464cdc50a1b79d349e2c506b1c4' # 0001-add-GPU-reset-sysfs-event.patch
-        '6490d86b359c0e5484eab77ab5650d0a8d24ab0e17977c8f2202169dfadcd5462db1d26df7e734b07eb7010b2832ef4937220fb7b86cb1a173d851212bf7ebc9' # 0001-HDR.patch
-
-        #'a2549254930b31e2b1eea76120c74a61787abdb845d46a8532a02e1dde785a236708f3332555a3af839235d54de1146f86f0bf60b5d86d3af2ec044ecc88886a' # 0001-ALSA-cs35l41-Use-mbox-command-to-enable-speaker-outp.patch
-        #'525576f349d77ae5aab136b3effd283e7acbc4eab3553d103d50f12878bc8bbcf5acee74b8ea829ff85f6a08e460066a2aef931df2fd4565f22826a64d1b6313' # 0002-ALSA-cs35l41-Poll-for-Power-Up-Down-rather-than-wait.patch
-        #'4364b0e987618790db9d5aa7bcb7a0a5b68e1f9720e360c101162626f5dbc3115273ad3c7ae388414bdb1cdb328367fdf986084f9a906631bcc61d0c501f0c6c' # 0003-ALSA-hda-cs35l41-Check-mailbox-status-of-pause-comma.patch
-        #'6e436702abb401c9a1c79795af8298d22b08e720a4554b0ca262a9b7e0797f0ac63e78804466d70b0dc5c129609973685f8a7df5f90c6270ebccbd0843c11549' # 0004-ALSA-hda-cs35l41-Ensure-we-correctly-re-sync-regmap-.patch
-        #'f2158133ad6db45c55693ac0d2463674bd7b1afca99067d54e4fd528b3f54f61cd7db41d682daf54adf261727ac802edf6d429d63601dfa90ded949e86ebcca6' # 0005-ALSA-hda-cs35l41-Ensure-we-pass-up-any-errors-during.patch
-        #'3fd557cc45ec996c16f34d669cec40ab66b5a9aed3019c434e67b6c5a5950d3ade68a015a46993cff6d782e7b79fea176ce90aff8e8abdb05d25d5a2fc25d63d' # 0006-ALSA-hda-cs35l41-Move-Play-and-Pause-into-separate-f.patch
-        #'d5ca9d31b3441a13a38906af74c89f47ffb337a8aef21d1467f59ccd0b2f5bb66f7f02d9e6dd4184c8508cd90735472a60d901ff075fbb129aa1c58b3b3da7dc' # 0007-ALSA-hda-hda_component-Add-pre-and-post-playback-hoo.patch
-        #'7629db696517d9e3fc0872c30523c6af1dd32fc7ebb182bf42e63f9cba0eb4796a5ca89d28b5b720dbe998d09d3d4d526c6b69bcc52aa98e6630e3ff73b1b42c' # 0008-ALSA-hda-cs35l41-Use-pre-and-post-playback-hooks.patch
-        #'1bd3458a041b53b9e914a2ca75c06e767545cd8dc16f5a1e5bfe602819176b8cccb1f771ec922f37f790cd3eb0236be880cef12794195bf5c80a65f14360f0cb' # 0009-ALSA-hda-cs35l41-Rework-System-Suspend-to-ensure-cor.patch
-        #'1cdc104776559a119ac4f0d9afd33a0cbc8ac01576b1a79158ac0c2ce63ba89b021522081b8b6739c2b87b722f060a67b5262a257b1ffadf34f19942db6148a1' # 0010-ALSA-hda-cs35l41-Add-device_link-between-HDA-and-cs3.patch
-        #'9691fc6d6b6f5c19d5b6e6f8d4f59dbb3380f78818b2750f9e440e1d00175768175effb9252fb91e8821b0fd806ac80096727ed30defa1e43f7b23575504ed8a' # 0011-ALSA-hda-cs35l41-Ensure-amp-is-only-unmuted-during-p.patch
-        
-        '27391bc98320689351abc6815e67f169527cba0a9ad043c7b117e1f273a3500466a0f989b079f35a1ab3cfa5627439cb94c12fa1f593d6c227ddcfb42f80fb79' # 0012-misc-additions.patch
-        'c7c7d8d3aed7f9ec1ed8e972d8e5f0abbd9eadfb6dad8bf66c63f780a85107a4d5a04ed3ff7fbb8840ff28cd439d58e5df934229e8ffd8492a9f230adcd3e693' # 0007-fsync1_via_futex_waitv.patch
-        'c2d2b6bd8e94d4c9725720128419ef571576c97a792c690a80d97753cdf1afde20103c5479d18ae3825fa7b72d2dbe7ee2d5838351d041f03f65c6246d69245e' # 0006-add-acs-overrides_iommu.patch
+        #'8bde0d883cb8127f292d591cc0f0cf6378132765b0fc8ff1760cf14c1673436fbd73768b81b22355ee5d58042149ef6cefec6788f0142cfee8bf217df70d16b8' # 0004-sphinx-kfigure.py-Convert-outdir-to-str-before-using.patch
+        #'e2e364387efe34a1a392cdf9801b6f164d84de428edd8e43ccb1f12690019078db297b9dcf61a5dd4a83ca40dca8f25d9117e240c1ffd8b969d81e4dc6e972fd' # 0001-mm-Support-soft-dirty-flag-reset-for-VA-range.patch
+        #'92ba9d2881ac68dba158bbb331262f760cf0e9a5e69caf4e20e86fb44ab8cddb676d8e04f2ddf808e1e13dbf3399e08923a5f091508966b8fc71fb2b251e55d6' # 0001-add-hid_id-and-keys-for-ASUS-ROG-ALLY.patch
+        #'448cb3800afb17d01c7d37ce9d11a75ec4eb05d968299cf6d86f50f0ba22f7670315a9ac5160348a12be3a83906e95a024466cc854a366dda14289a3b92a6aaf' # 0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
+        #'6a4d78d637ba0fdb5a43cb2a21504829d721838f95a18ff96aaec7fd2f66898164827fbcb983a9d0fabbfd4d96982ecdd531e464cdc50a1b79d349e2c506b1c4' # 0001-add-GPU-reset-sysfs-event.patch
+        #'6490d86b359c0e5484eab77ab5650d0a8d24ab0e17977c8f2202169dfadcd5462db1d26df7e734b07eb7010b2832ef4937220fb7b86cb1a173d851212bf7ebc9' # 0001-HDR.patch
+        #'27391bc98320689351abc6815e67f169527cba0a9ad043c7b117e1f273a3500466a0f989b079f35a1ab3cfa5627439cb94c12fa1f593d6c227ddcfb42f80fb79' # 0012-misc-additions.patch
+        #'c7c7d8d3aed7f9ec1ed8e972d8e5f0abbd9eadfb6dad8bf66c63f780a85107a4d5a04ed3ff7fbb8840ff28cd439d58e5df934229e8ffd8492a9f230adcd3e693' # 0007-fsync1_via_futex_waitv.patch
+        #'c2d2b6bd8e94d4c9725720128419ef571576c97a792c690a80d97753cdf1afde20103c5479d18ae3825fa7b72d2dbe7ee2d5838351d041f03f65c6246d69245e' # 0006-add-acs-overrides_iommu.patch
         '508ff463d936e07e0c3ac2017da12bda52d3db5d98d45fe908f35c4d9fadb253cc9d5c17b8915ec600b5024fcecc2746a04d32096e7ebf691438d4ab8bd067a8' # more-uarches-for-kernel-5.17+.patch
-        'bdcf54a61b9b1706383cab7a2aa67ff8b62c2cb2503147efad5fc402003aef1a3ec046b9902c7409d2be49e9f16ca949b631e1ba47abef432235da6cf7b6a238' # 0007-winesync.patch
+        #'bdcf54a61b9b1706383cab7a2aa67ff8b62c2cb2503147efad5fc402003aef1a3ec046b9902c7409d2be49e9f16ca949b631e1ba47abef432235da6cf7b6a238' # 0007-winesync.patch
         'a8654cdb24b573ab16b72565827ce6fcc9dae2a575db23f789e9760e2f9cdd7653fa9bb7364e1625f90ed377c447a5c079d4b5d71f22313b8d3361033d79bcae' # 0013-optimize_harder_O3.patch
-        #'SKIP'                                                                                                                             # asus-wmi-debug.patch
-        'c9b8f744a6bacd37d33a78c31a815ab0c6bc3f78ecd62f094780b115f49fbe9f4d49477f71efcac682cc8d6c8b0a3685029b118845d220647f165e1fc151ce2a' # 0001-add-acpi_call.patch
-        '41dc47bb1974e9fe1dac41b253f1a925f41bed0a4027821204c662a180fba1fd3dfde2cd950e85e20185ea720fa8696165cde11331fe6b8b7ecd42030ba8bf0f' # bmc150.patch
+        #'c9b8f744a6bacd37d33a78c31a815ab0c6bc3f78ecd62f094780b115f49fbe9f4d49477f71efcac682cc8d6c8b0a3685029b118845d220647f165e1fc151ce2a' # 0001-add-acpi_call.patch
+        #'41dc47bb1974e9fe1dac41b253f1a925f41bed0a4027821204c662a180fba1fd3dfde2cd950e85e20185ea720fa8696165cde11331fe6b8b7ecd42030ba8bf0f' # bmc150.patch
 )
 
 export KBUILD_BUILD_HOST=archlinux

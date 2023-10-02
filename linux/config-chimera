@@ -2,3 +2,6 @@
 
 # Enable support for AMDGPU color calibration features
 CONFIG_DRM_AMD_COLOR_STEAMDECK=y
+
+# Enable ACPI_call
+CONFIG_ACPI_CALL=m
