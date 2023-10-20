@@ -93,8 +93,8 @@ validpgpkeys=(
 )
 b2sums=(
         'bc7be57380a4d2a28dccced3303d54f72514d4bb4ffa29ad8e3d39da8a918a3ef58bc68ebae7b2d195934471b7a7308ed907e66e84fb490ca76f76049df760b4' # kernel source
-        'SKIP' # config
-        'SKIP' # config-chimera
+        '5f0941ec18eee171ff5e701618f99de5e71af6817ef304bb5bcb98e4de13b2452ebef387df735ece8d6bfb63bbe9d686e3b887e6c4c99796f91b1449e3c69f17' # config
+        '17d2cd571bc843106ec2b7cec85b550901443f37779304129a05be39651eca65fa9c3f5fd575336e57c3c5af9d0ddca5277da8db742083b32d40266cf623947c' # config-chimera
         '35428a30c1e4de8c78c418b797d99f8bc58e7a2d57d488e47a8f3ea7fb8e1e9af4dce85b93333abcf1dfcf77ed34c1b5261c9db58b5c6661edf9fd34cac67d8d' # 0001-ZEN-Add-sysctl-and-CONFIG-to-disallow-unprivileged-C.patch
         '8bde0d883cb8127f292d591cc0f0cf6378132765b0fc8ff1760cf14c1673436fbd73768b81b22355ee5d58042149ef6cefec6788f0142cfee8bf217df70d16b8' # 0004-sphinx-kfigure.py-Convert-outdir-to-str-before-using.patch
         'e2e364387efe34a1a392cdf9801b6f164d84de428edd8e43ccb1f12690019078db297b9dcf61a5dd4a83ca40dca8f25d9117e240c1ffd8b969d81e4dc6e972fd' # 0001-mm-Support-soft-dirty-flag-reset-for-VA-range.patch
