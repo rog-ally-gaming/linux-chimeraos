@@ -92,7 +92,7 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-        'b1e4125e5ed7969079241f4213317c0aff2a8fe8e0a27a58f84a91baf90011047f325f4c175fb53d7586290475ebd40fba7e3fb4d284a964cc330d234fce5615' # kernel source
+        'bc7be57380a4d2a28dccced3303d54f72514d4bb4ffa29ad8e3d39da8a918a3ef58bc68ebae7b2d195934471b7a7308ed907e66e84fb490ca76f76049df760b4' # kernel source
         'SKIP' # config
         'SKIP' # config-chimera
         '35428a30c1e4de8c78c418b797d99f8bc58e7a2d57d488e47a8f3ea7fb8e1e9af4dce85b93333abcf1dfcf77ed34c1b5261c9db58b5c6661edf9fd34cac67d8d' # 0001-ZEN-Add-sysctl-and-CONFIG-to-disallow-unprivileged-C.patch
