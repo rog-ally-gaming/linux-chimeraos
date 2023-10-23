@@ -53,6 +53,8 @@ source=(
 
   0001-add-hid_id-and-keys-for-ASUS-ROG-ALLY.patch
 
+  gamemode_toggle.patch
+
   # No overrides ROG ally
   0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
 
@@ -99,6 +101,7 @@ b2sums=(
         '8bde0d883cb8127f292d591cc0f0cf6378132765b0fc8ff1760cf14c1673436fbd73768b81b22355ee5d58042149ef6cefec6788f0142cfee8bf217df70d16b8' # 0004-sphinx-kfigure.py-Convert-outdir-to-str-before-using.patch
         'e2e364387efe34a1a392cdf9801b6f164d84de428edd8e43ccb1f12690019078db297b9dcf61a5dd4a83ca40dca8f25d9117e240c1ffd8b969d81e4dc6e972fd' # 0001-mm-Support-soft-dirty-flag-reset-for-VA-range.patch
         '92ba9d2881ac68dba158bbb331262f760cf0e9a5e69caf4e20e86fb44ab8cddb676d8e04f2ddf808e1e13dbf3399e08923a5f091508966b8fc71fb2b251e55d6' # 0001-add-hid_id-and-keys-for-ASUS-ROG-ALLY.patch
+        'a6ddd50d2c21e754b43d4f5d54ada9a58c88c39c1d3a25c0301376cd127b256ae9f78d0ce540e5021785f83d5dc1bcf5a1b18bb07de9cfad2d3f446476c789b7' # gamemode_toggle.patch
         '448cb3800afb17d01c7d37ce9d11a75ec4eb05d968299cf6d86f50f0ba22f7670315a9ac5160348a12be3a83906e95a024466cc854a366dda14289a3b92a6aaf' # 0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
         'f761886b647e0885d352b855d5b6405c83633383949e16eda908dc531e142bb7fd146ee456fa8aac361e267dfb9f32944d96c455b638cae2593cea8eccac2857' # ROG_ALLY_OLDER_BIOS_AUDIO.patch
         '5d5564215f45ccfb982cd599b7484800e0683b32ad9b06585a6d1400bc0635352c52b7760f59e4884eb933593f8168c254812d4b7a70335ca994703f46c2aa39' # ROG-ALLY-NCT6775-PLATFORM.patch
