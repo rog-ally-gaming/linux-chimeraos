@@ -95,7 +95,7 @@ validpgpkeys=(
 )
 b2sums=(
         'cedf29ec54e17a7425e659fbac3f6ca9878656ab3edab86e210c74ba33a93d4cca96a3ff9867a2fc516889d462c4dd2e0e1b2f79e59ecfcba88ddf7a5ea52c6a' # kernel source
-        '5f0941ec18eee171ff5e701618f99de5e71af6817ef304bb5bcb98e4de13b2452ebef387df735ece8d6bfb63bbe9d686e3b887e6c4c99796f91b1449e3c69f17' # config
+        'f7ec11bbcc0598e91895ed1f7adbad12e36171e2f12c857662045dbe7c2512b6e89eba1097ed97e788bf7a49c776babe6cc9b26365d9cc58e7cc0a971b33c2b2' # config
         '17d2cd571bc843106ec2b7cec85b550901443f37779304129a05be39651eca65fa9c3f5fd575336e57c3c5af9d0ddca5277da8db742083b32d40266cf623947c' # config-chimera
         '35428a30c1e4de8c78c418b797d99f8bc58e7a2d57d488e47a8f3ea7fb8e1e9af4dce85b93333abcf1dfcf77ed34c1b5261c9db58b5c6661edf9fd34cac67d8d' # 0001-ZEN-Add-sysctl-and-CONFIG-to-disallow-unprivileged-C.patch
         '8bde0d883cb8127f292d591cc0f0cf6378132765b0fc8ff1760cf14c1673436fbd73768b81b22355ee5d58042149ef6cefec6788f0142cfee8bf217df70d16b8' # 0004-sphinx-kfigure.py-Convert-outdir-to-str-before-using.patch
