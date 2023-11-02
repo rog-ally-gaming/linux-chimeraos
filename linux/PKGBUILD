@@ -54,6 +54,8 @@ source=(
 
   0001-add-hid_id-and-keys-for-ASUS-ROG-ALLY.patch
   0002-usb-Add-a-mode-switch-for-the-controller-embedded-on.patch
+  0003-asus-hid-set-led-brightness-at-resume-as-it-was-left.patch
+  0004-hid-asus-Improve-function-signature.patch
 
   # No overrides ROG ally
   0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
@@ -100,6 +102,8 @@ b2sums=(
         'e2e364387efe34a1a392cdf9801b6f164d84de428edd8e43ccb1f12690019078db297b9dcf61a5dd4a83ca40dca8f25d9117e240c1ffd8b969d81e4dc6e972fd' # 0001-mm-Support-soft-dirty-flag-reset-for-VA-range.patch
         '92ba9d2881ac68dba158bbb331262f760cf0e9a5e69caf4e20e86fb44ab8cddb676d8e04f2ddf808e1e13dbf3399e08923a5f091508966b8fc71fb2b251e55d6' # 0001-add-hid_id-and-keys-for-ASUS-ROG-ALLY.patch
         '08c138640813a9f661ee40546295754b7c411063385e802ccaca4d45d8454339c4cd469be57f9c222d509ca86ac1f505adc68cb8ac9b515e7e67e6c03240156f' # 0002-usb-Add-a-mode-switch-for-the-controller-embedded-on.patch
+        'd2f89317f37f871913804fb03fa63c85ec1d2de9b5e13af41abfd50d508e73a44b03c646187157f2de44144a75828eab371f9584858565692e2c7221acaca60b' # 0003-asus-hid-set-led-brightness-at-resume-as-it-was-left.patch
+        'c27968ad1c714a02b801f5348f53ba6d45d7bc786b0626915539553bd5f1868d67cdbee141c0488b9c32c40ad99c55f214bca2ffc639a1214866474fbc1a79e7' # 0004-hid-asus-Improve-function-signature.patch
         '448cb3800afb17d01c7d37ce9d11a75ec4eb05d968299cf6d86f50f0ba22f7670315a9ac5160348a12be3a83906e95a024466cc854a366dda14289a3b92a6aaf' # 0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
         '3abdb17aa93bbcc6f81c0a0cbb1fa2c15ba942be893b76855bb7303983347b796f8ec9e8cd0b8dc305a404bc528536cf39b12d880930a8c9bc4d8b06aaed4880' # 0002-ALSA-hda-cs35l41-Improve-support-for-ASUS-ROG-Ally.patch
         '5d5564215f45ccfb982cd599b7484800e0683b32ad9b06585a6d1400bc0635352c52b7760f59e4884eb933593f8168c254812d4b7a70335ca994703f46c2aa39' # ROG-ALLY-NCT6775-PLATFORM.patch

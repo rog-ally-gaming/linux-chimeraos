@@ -1,0 +1,31 @@
+From 005d15aaeb85213f5cedd7f642487302c04285ba Mon Sep 17 00:00:00 2001
+From: Denis <benato.denis96@gmail.com>
+Date: Thu, 2 Nov 2023 02:31:56 +0100
+Subject: [PATCH 4/4] hid-asus: Improve function signature
+
+---
+ drivers/hid/hid-asus.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/hid/hid-asus.c b/drivers/hid/hid-asus.c
+index 3b3ae9e5b4ae..16bf3512a43b 100644
+--- a/drivers/hid/hid-asus.c
++++ b/drivers/hid/hid-asus.c
+@@ -1045,12 +1045,12 @@ static int asus_raw_event(struct hid_device *hdev,
+ 	return 0;
+ }
+ 
+-static int asus_kbd_set_report(struct hid_device *hdev, u8 *buf, size_t buf_size)
++static int asus_kbd_set_report(struct hid_device *hdev, const u8 *buf, size_t buf_size)
+ {
+ 	unsigned char *dmabuf;
+ 	int ret;
+ 
+-	dmabuf = kmemdup(buf, buf_size, GFP_KERNEL);
++	dmabuf = kmemdup((const void*)buf, buf_size, GFP_KERNEL);
+ 	if (!dmabuf)
+ 		return -ENOMEM;
+ 
+-- 
+2.42.0
+
