@@ -56,6 +56,8 @@ source=(
   0002-usb-Add-a-mode-switch-for-the-controller-embedded-on.patch
   0003-asus-hid-set-led-brightness-at-resume-as-it-was-left.patch
   0004-hid-asus-Improve-function-signature.patch
+  0005-hid-asis-add-platform-device-and-relative-sysfs.patch
+  0006-Add-asus-platform-and-send-USB-ABORT_PIPE-befor-slee.patch
 
   # No overrides ROG ally
   0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
@@ -85,6 +87,8 @@ source=(
   0001-add-acpi_call.patch
 
   bmc150.patch
+
+  #test.patch
 )
 
 validpgpkeys=(
@@ -104,6 +108,8 @@ b2sums=(
         '08c138640813a9f661ee40546295754b7c411063385e802ccaca4d45d8454339c4cd469be57f9c222d509ca86ac1f505adc68cb8ac9b515e7e67e6c03240156f' # 0002-usb-Add-a-mode-switch-for-the-controller-embedded-on.patch
         'd2f89317f37f871913804fb03fa63c85ec1d2de9b5e13af41abfd50d508e73a44b03c646187157f2de44144a75828eab371f9584858565692e2c7221acaca60b' # 0003-asus-hid-set-led-brightness-at-resume-as-it-was-left.patch
         'c27968ad1c714a02b801f5348f53ba6d45d7bc786b0626915539553bd5f1868d67cdbee141c0488b9c32c40ad99c55f214bca2ffc639a1214866474fbc1a79e7' # 0004-hid-asus-Improve-function-signature.patch
+        '7df0c3b25d386592f6ec7e055e44aad462fed722feb67ac25667f1d71dbc9004a7c76c4a68757bd1e2684257817d027c0df708b04b6927bc86e65f4358320f99' # 0005-hid-asis-add-platform-device-and-relative-sysfs.patch
+        '50aaf349f79d13b2c66c991aa31463041cf8f23cd615ef6c639c3199f25c9ea07166ec0749b960b8d6e74ef75d22203dd5c210d482b58fd297fc191a38d5dae5' # 0006-Add-asus-platform-and-send-USB-ABORT_PIPE-befor-slee.patch
         '448cb3800afb17d01c7d37ce9d11a75ec4eb05d968299cf6d86f50f0ba22f7670315a9ac5160348a12be3a83906e95a024466cc854a366dda14289a3b92a6aaf' # 0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
         '3abdb17aa93bbcc6f81c0a0cbb1fa2c15ba942be893b76855bb7303983347b796f8ec9e8cd0b8dc305a404bc528536cf39b12d880930a8c9bc4d8b06aaed4880' # 0002-ALSA-hda-cs35l41-Improve-support-for-ASUS-ROG-Ally.patch
         '5d5564215f45ccfb982cd599b7484800e0683b32ad9b06585a6d1400bc0635352c52b7760f59e4884eb933593f8168c254812d4b7a70335ca994703f46c2aa39' # ROG-ALLY-NCT6775-PLATFORM.patch
@@ -117,6 +123,7 @@ b2sums=(
         'a8654cdb24b573ab16b72565827ce6fcc9dae2a575db23f789e9760e2f9cdd7653fa9bb7364e1625f90ed377c447a5c079d4b5d71f22313b8d3361033d79bcae' # 0013-optimize_harder_O3.patch
         'c9b8f744a6bacd37d33a78c31a815ab0c6bc3f78ecd62f094780b115f49fbe9f4d49477f71efcac682cc8d6c8b0a3685029b118845d220647f165e1fc151ce2a' # 0001-add-acpi_call.patch
         '41dc47bb1974e9fe1dac41b253f1a925f41bed0a4027821204c662a180fba1fd3dfde2cd950e85e20185ea720fa8696165cde11331fe6b8b7ecd42030ba8bf0f' # bmc150.patch
+        #'SKIP'
 )
 
 export KBUILD_BUILD_HOST=archlinux

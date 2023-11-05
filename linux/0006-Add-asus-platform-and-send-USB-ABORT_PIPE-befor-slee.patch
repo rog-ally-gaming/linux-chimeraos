@@ -1,0 +1,181 @@
+From e9fbeb47c8650453523a178710dd0493693d9f96 Mon Sep 17 00:00:00 2001
+From: Denis <benato.denis96@gmail.com>
+Date: Sun, 5 Nov 2023 14:39:03 +0100
+Subject: [PATCH 6/6] Add asus-platform and send USB ABORT_PIPE befor sleeping
+ the device as windows does
+
+---
+ drivers/hid/hid-asus.c | 66 ++++++++++++++++++++++--------------------
+ 1 file changed, 35 insertions(+), 31 deletions(-)
+
+diff --git a/drivers/hid/hid-asus.c b/drivers/hid/hid-asus.c
+index 76920f0a15fc..3159ba49e427 100644
+--- a/drivers/hid/hid-asus.c
++++ b/drivers/hid/hid-asus.c
+@@ -552,10 +552,10 @@ enum rc71l_controller_mode {
+ struct asus_rc71l {
+ 	unsigned int usb_pipe;
+ 
+-	struct platform_device *mcu_dev;
+-
+ 	struct mutex mutex; /* Mutex that protects everything below it */
+ 
++	struct platform_device *mcu_dev;
++
+ 	enum rc71l_controller_mode mode;
+ 
+ 	u8 usb_in_buf[32];
+@@ -774,7 +774,7 @@ static int rc71l_mode_change(struct hid_device * hdev, enum rc71l_controller_mod
+ 	return ret;
+ }
+ 
+-static ssize_t mode_show(struct device *raw_dev, struct device_attribute *attr, char *buf) {
++static ssize_t __maybe_unused mode_show(struct device *raw_dev, struct device_attribute *attr, char *buf) {
+ 	struct platform_device *const pdev = to_platform_device(raw_dev);
+ 	struct hid_device *const hdev = platform_get_drvdata(pdev);
+ 	if (hdev == NULL) {
+@@ -816,7 +816,7 @@ static ssize_t mode_show(struct device *raw_dev, struct device_attribute *attr,
+ 	return sysfs_emit(buf, "%d\n", (int)current_mode);
+ }
+ 
+-static ssize_t mode_store(struct device *raw_dev, struct device_attribute *attr, const char *buf, size_t count) {
++static ssize_t __maybe_unused mode_store(struct device *raw_dev, struct device_attribute *attr, const char *buf, size_t count) {
+ 	struct platform_device *const pdev = to_platform_device(raw_dev);
+ 	struct hid_device *const hdev = platform_get_drvdata(pdev);
+ 	if (hdev == NULL) {
+@@ -867,14 +867,14 @@ static ssize_t mode_store(struct device *raw_dev, struct device_attribute *attr,
+ 
+ DEVICE_ATTR_RW(mode);
+ 
+-static struct attribute *rc71l_controller_attrs[] = {
++static struct attribute *rc71l_input_attrs[] = {
+ 	&dev_attr_mode.attr,
+ 	NULL
+ };
+ 
+-static const struct attribute_group ally_controller_attr_group = {
+-	.name = "rc71l_controller",
+-	.attrs = rc71l_controller_attrs,
++static const struct attribute_group mcu_attr_group = {
++	.name = "input",
++	.attrs = rc71l_input_attrs,
+ };
+ 
+ static void asus_report_contact_down(struct asus_drvdata *drvdat,
+@@ -1720,13 +1720,24 @@ static int __maybe_unused asus_suspend(struct hid_device *hdev, struct pm_messag
+ 
+ 	int ret = 0;
+ 
++	if (dmi_match(DMI_PRODUCT_NAME, "ROG Ally RC71L_RC71L")) {
++		// Send the USB ABORT_PIPE command
++		int result = usb_control_msg(
++			dev, usb_sndctrlpipe(dev, 0), USB_REQ_SET_FEATURE,
++			USB_DIR_OUT | USB_TYPE_STANDARD | USB_RECIP_ENDPOINT,
++			USB_ENDPOINT_HALT, 0x02, NULL, 0, 1000);
++
++		if (result < 0) {
++			printk("USB ABORT_PIPE failed: %d\n", result);
++		} else {
++			printk("USB ABORT_PIPE succeeded\n");
++		}
++	}
++
+ 	struct asus_rc71l *rc71l_drvdata = drvdata->rc71l_data;
+ 	if (rc71l_drvdata != NULL) {
+ 		mutex_lock(&rc71l_drvdata->mutex);
+-		// TODO: send ABOIRT_PIPE here
+-		usb_control_msg(dev, rc71l_drvdata->usb_pipe, 0x09, 0x21, 0x035A, 0x0002, (void*)&rc71l_drvdata->usb_out_buf[0], 64, 250);
+-		
+-
++		// TODO: send ABORT_PIPE here
+ 		mutex_unlock(&rc71l_drvdata->mutex);
+ 	}
+ 
+@@ -1750,14 +1761,10 @@ static int __maybe_unused asus_resume(struct hid_device *hdev)
+ 			goto asus_resume_err;
+ 		}
+ 
+-		/*
+-		 * From the power management documentation:
+-		 *	The reset_resume method is called to tell the driver that the device has been resumed and it also has been reset.
+-		 *  The driver should redo any necessary device initialization, since the device has probably lost most or all of its state
+-		 *  (although the interfaces will be in the same altsettings as before the suspend).
+-		 *
+-		 * For the asus RC71L this is true and the "keyboard" device is facing directly the user, therefore to not bother the user
+-		 * with LEDs suddently turning ON after sleeping the device the same led leves are to be set.
++		/**
++		 * On some devices such as the Asus RC71L leds are reset to default after sleep and sysfs attribute will report
++		 * something that won't be true: resetting the user-provided value is necessary to maintain coherency and avoid
++		 * flashing full brightness leds in face of the user.
+ 		 */
+ 		if (drvdata->kbd_backlight) {
+ 			const u8 buf[] = { FEATURE_KBD_REPORT_ID, 0xba, 0xc5, 0xc4, drvdata->kbd_backlight->cdev.brightness };
+@@ -1766,8 +1773,6 @@ static int __maybe_unused asus_resume(struct hid_device *hdev)
+ 				hid_err(hdev, "Asus failed to set keyboard backlight: %d\n", ret);
+ 				goto asus_resume_err;
+ 			}
+-
+-			hid_err(hdev, "Asus ROG Ally asus_reset_resume, leds reset: %d at brightness %d\n", ret, (int)drvdata->kbd_backlight->cdev.brightness);
+ 		}
+ 	}
+ 
+@@ -1888,7 +1893,7 @@ static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
+ 			goto err_stop_hw;
+ 	}
+ 
+-	if (dmi_match(DMI_PRODUCT_NAME, "ROG Ally RC71L_RC71L"))
++	if ((dmi_match(DMI_PRODUCT_NAME, "ROG Ally RC71L_RC71L")) && (hdev->rsize > 9) && (hdev->rdesc[7] == 0x85) && (hdev->rdesc[8] == 0x5a))
+ 	{
+ 		drvdata->rc71l_data = devm_kzalloc(&hdev->dev, sizeof(*drvdata->rc71l_data), GFP_KERNEL);
+ 		if (drvdata->rc71l_data == NULL) {
+@@ -1918,7 +1923,7 @@ static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
+ 			goto err_stop_hw;
+ 		}
+ 
+-		drvdata->rc71l_data->mcu_dev = platform_device_register_simple("mcu", 0, NULL, 0);
++		drvdata->rc71l_data->mcu_dev = platform_device_register_simple("asus-mcu", 0, NULL, 0);
+ 		if (IS_ERR(drvdata->rc71l_data->mcu_dev)) {
+ 			hid_err(hdev, "Error registering MCU platform device: %ld\n", PTR_ERR(drvdata->rc71l_data->mcu_dev));
+ 			goto err_stop_hw;
+@@ -1926,13 +1931,13 @@ static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
+ 
+ 		platform_set_drvdata(drvdata->rc71l_data->mcu_dev, hdev);
+ 
+-		ret = devm_device_add_group(&drvdata->rc71l_data->mcu_dev->dev, &ally_controller_attr_group);
++		ret = devm_device_add_group(&drvdata->rc71l_data->mcu_dev->dev, &mcu_attr_group);
+ 		if (ret != 0) {
+-			hid_err(hdev, "Asus ROG Ally [RC71L] error registering attr group: %d\n", ret);
++			platform_device_unregister(drvdata->rc71l_data->mcu_dev);
+ 			goto err_stop_hw;
+ 		}
+ 	}
+-	
++
+ 	return 0;
+ err_stop_hw:
+ 	hid_hw_stop(hdev);
+@@ -1954,10 +1959,9 @@ static void asus_remove(struct hid_device *hdev)
+ 
+ 	struct asus_rc71l *rc71l_drvdata = drvdata->rc71l_data;
+ 	if (rc71l_drvdata != NULL) {
+-		platform_device_unregister(rc71l_drvdata->mcu_dev);
+-
+ 		mutex_lock(&rc71l_drvdata->mutex);
+-		// TODO: perform cleanup operations
++		platform_device_unregister(rc71l_drvdata->mcu_dev);
++		// TODO: perform cleanup operations	
+ 		mutex_unlock(&rc71l_drvdata->mutex);
+ 	}
+ 
+@@ -2079,7 +2083,7 @@ static const struct hid_device_id asus_devices[] = {
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK,
+ 	    USB_DEVICE_ID_ASUSTEK_ROG_NKEY_KEYBOARD3),
+ 	  QUIRK_USE_KBD_BACKLIGHT | QUIRK_ROG_NKEY_KEYBOARD },
+-		{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK,
++	{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK,
+ 	    USB_DEVICE_ID_ASUSTEK_ROG_NKEY_ALLY),
+ 	  QUIRK_ROG_NKEY_KEYBOARD },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ASUSTEK,
+-- 
+2.42.0
+
