@@ -2,7 +2,7 @@
 # Maintainer: Joaquín I. Aramendía (samsagax) <samsagaxg@gmail.com>
 
 pkgbase=linux-neroreflex
-pkgver=6.6.1.nrflx1
+pkgver=6.6.1.nrflx2
 pkgrel=1
 pkgdesc='Linux NeroReflex'
 #_srctag=${pkgver%.*}
