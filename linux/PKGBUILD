@@ -87,6 +87,8 @@ source=(
 
   bmc150.patch
 
+  uinput.patch
+
   #test.patch
 )
 
@@ -122,6 +124,7 @@ b2sums=(
         'a8654cdb24b573ab16b72565827ce6fcc9dae2a575db23f789e9760e2f9cdd7653fa9bb7364e1625f90ed377c447a5c079d4b5d71f22313b8d3361033d79bcae' # 0013-optimize_harder_O3.patch
         'c9b8f744a6bacd37d33a78c31a815ab0c6bc3f78ecd62f094780b115f49fbe9f4d49477f71efcac682cc8d6c8b0a3685029b118845d220647f165e1fc151ce2a' # 0001-add-acpi_call.patch
         '41dc47bb1974e9fe1dac41b253f1a925f41bed0a4027821204c662a180fba1fd3dfde2cd950e85e20185ea720fa8696165cde11331fe6b8b7ecd42030ba8bf0f' # bmc150.patch
+        'd4d19744a2d25c80e484846c26c8f5ab531db060e966d8af7dce4de444b01a8692f9e6abf29ebc508980444dbe4c4bd9a91900f3993ff484a222bd3b675ef14c' # uinput.patch
         #'SKIP'
 )
 
