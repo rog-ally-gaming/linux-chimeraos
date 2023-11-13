@@ -228,6 +228,17 @@ _package() {
   rm "$modulesdir"/build
 }
 
+_package-api-headers() {
+  pkgdesc='Kernel headers sanitized for use in userspace'
+  provides=(linux-api-headers)
+  cd $_srcname
+  _make INSTALL_HDR_PATH="$pkgdir/usr" headers_install
+
+  # use headers from libdrm
+  rm -r "$pkgdir/usr/include/drm"
+}
+
+
 _package-headers() {
   pkgdesc="Headers and scripts for building modules for the $pkgdesc kernel"
   depends=(pahole)
@@ -332,6 +343,7 @@ _package-docs() {
 pkgname=(
   "$pkgbase"
   "$pkgbase-headers"
+  "$pkgbase-api-headers"
   #"$pkgbase-docs"
 )
 for _p in "${pkgname[@]}"; do
