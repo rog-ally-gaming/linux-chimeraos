@@ -59,9 +59,10 @@ source=(
   0005-hid-asis-add-platform-device-and-relative-sysfs.patch
   0006-Add-asus-platform-and-send-USB-ABORT_PIPE-befor-slee.patch
 
-  # No overrides ROG ally
-  #0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
-  #0002-ALSA-hda-cs35l41-Improve-support-for-ASUS-ROG-Ally.patch
+  v2-0001-platform-x86-asus-wmi-disable-USB0-hub-on-ROG-All.patch
+
+  0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
+  0002-ALSA-hda-cs35l41-Improve-support-for-ASUS-ROG-Ally.patch
 
   ROG-ALLY-NCT6775-PLATFORM.patch
 
@@ -99,7 +100,7 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-        '3bb35ba0386b00aa76dfd073e87b0d5a319d3116a80c39b11a3acd1219bc7d8b3809c1def24a3c4f52abc60f70c170a2f80d80c6b54459eec016c5ddc404c6fc' # kernel source
+        'a742c74ede116e2e49f7efed07e7e3e9e0286138165f5ff5bad621fbf4731e5706c63f9ccbcd3b68122635031a3f6c04674351de77c9e115d23d26ae678a679b' # kernel source
         '5f0941ec18eee171ff5e701618f99de5e71af6817ef304bb5bcb98e4de13b2452ebef387df735ece8d6bfb63bbe9d686e3b887e6c4c99796f91b1449e3c69f17' # config
         '17d2cd571bc843106ec2b7cec85b550901443f37779304129a05be39651eca65fa9c3f5fd575336e57c3c5af9d0ddca5277da8db742083b32d40266cf623947c' # config-chimera
         '35428a30c1e4de8c78c418b797d99f8bc58e7a2d57d488e47a8f3ea7fb8e1e9af4dce85b93333abcf1dfcf77ed34c1b5261c9db58b5c6661edf9fd34cac67d8d' # 0001-ZEN-Add-sysctl-and-CONFIG-to-disallow-unprivileged-C.patch
@@ -111,8 +112,9 @@ b2sums=(
         'c27968ad1c714a02b801f5348f53ba6d45d7bc786b0626915539553bd5f1868d67cdbee141c0488b9c32c40ad99c55f214bca2ffc639a1214866474fbc1a79e7' # 0004-hid-asus-Improve-function-signature.patch
         '7df0c3b25d386592f6ec7e055e44aad462fed722feb67ac25667f1d71dbc9004a7c76c4a68757bd1e2684257817d027c0df708b04b6927bc86e65f4358320f99' # 0005-hid-asis-add-platform-device-and-relative-sysfs.patch
         '50aaf349f79d13b2c66c991aa31463041cf8f23cd615ef6c639c3199f25c9ea07166ec0749b960b8d6e74ef75d22203dd5c210d482b58fd297fc191a38d5dae5' # 0006-Add-asus-platform-and-send-USB-ABORT_PIPE-befor-slee.patch
-        #'448cb3800afb17d01c7d37ce9d11a75ec4eb05d968299cf6d86f50f0ba22f7670315a9ac5160348a12be3a83906e95a024466cc854a366dda14289a3b92a6aaf' # 0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
-        #'3abdb17aa93bbcc6f81c0a0cbb1fa2c15ba942be893b76855bb7303983347b796f8ec9e8cd0b8dc305a404bc528536cf39b12d880930a8c9bc4d8b06aaed4880' # 0002-ALSA-hda-cs35l41-Improve-support-for-ASUS-ROG-Ally.patch
+        '87aecd2edb9482554b77de8de1262926079fd21969151e44d4411b76c8585c93b5db32d964a72bbaa84752e58841bcf8690a2602ced8bd3b8150976e49331520' # v2-0001-platform-x86-asus-wmi-disable-USB0-hub-on-ROG-All.patch
+        '448cb3800afb17d01c7d37ce9d11a75ec4eb05d968299cf6d86f50f0ba22f7670315a9ac5160348a12be3a83906e95a024466cc854a366dda14289a3b92a6aaf' # 0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
+        '3abdb17aa93bbcc6f81c0a0cbb1fa2c15ba942be893b76855bb7303983347b796f8ec9e8cd0b8dc305a404bc528536cf39b12d880930a8c9bc4d8b06aaed4880' # 0002-ALSA-hda-cs35l41-Improve-support-for-ASUS-ROG-Ally.patch
         '5d5564215f45ccfb982cd599b7484800e0683b32ad9b06585a6d1400bc0635352c52b7760f59e4884eb933593f8168c254812d4b7a70335ca994703f46c2aa39' # ROG-ALLY-NCT6775-PLATFORM.patch
         '6a4d78d637ba0fdb5a43cb2a21504829d721838f95a18ff96aaec7fd2f66898164827fbcb983a9d0fabbfd4d96982ecdd531e464cdc50a1b79d349e2c506b1c4' # 0001-add-GPU-reset-sysfs-event.patch
         '6490d86b359c0e5484eab77ab5650d0a8d24ab0e17977c8f2202169dfadcd5462db1d26df7e734b07eb7010b2832ef4937220fb7b86cb1a173d851212bf7ebc9' # 0001-HDR.patch
