@@ -2,12 +2,12 @@
 # Maintainer: Joaquín I. Aramendía (samsagax) <samsagaxg@gmail.com>
 
 pkgbase=linux-neroreflex
-pkgver=6.6.1.nrflx2
+pkgver=6.6.2.nrflx2
 pkgrel=1
 pkgdesc='Linux NeroReflex'
 #_srctag=${pkgver%.*}
 _srcserie='6.x'
-_srctag='6.6.1'
+_srctag='6.6.2'
 url="https://github.com/NeroReflex/linux-chimeraos"
 arch=(x86_64)
 license=(GPL2)
@@ -100,8 +100,8 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-        'a742c74ede116e2e49f7efed07e7e3e9e0286138165f5ff5bad621fbf4731e5706c63f9ccbcd3b68122635031a3f6c04674351de77c9e115d23d26ae678a679b' # kernel source
-        '5f0941ec18eee171ff5e701618f99de5e71af6817ef304bb5bcb98e4de13b2452ebef387df735ece8d6bfb63bbe9d686e3b887e6c4c99796f91b1449e3c69f17' # config
+        '88fc55107834d4308d33547211a031674ffaa8e48e23d6612ba39430292b18073d49271bd3ce8c7be01d8c5668482cb1715071abfd9b1f75b06468a09f8f4eec' # kernel source
+        '321a0e363e69761252be1bbb8cb5f78240cfc8e20ca2945fe597326574b4bf548fd2c6e68d2216e956a58bbd918b8ab2aa2ff938ef0acea93eb361e523487601' # config
         '17d2cd571bc843106ec2b7cec85b550901443f37779304129a05be39651eca65fa9c3f5fd575336e57c3c5af9d0ddca5277da8db742083b32d40266cf623947c' # config-chimera
         '35428a30c1e4de8c78c418b797d99f8bc58e7a2d57d488e47a8f3ea7fb8e1e9af4dce85b93333abcf1dfcf77ed34c1b5261c9db58b5c6661edf9fd34cac67d8d' # 0001-ZEN-Add-sysctl-and-CONFIG-to-disallow-unprivileged-C.patch
         '8bde0d883cb8127f292d591cc0f0cf6378132765b0fc8ff1760cf14c1673436fbd73768b81b22355ee5d58042149ef6cefec6788f0142cfee8bf217df70d16b8' # 0004-sphinx-kfigure.py-Convert-outdir-to-str-before-using.patch
