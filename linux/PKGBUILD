@@ -59,7 +59,7 @@ source=(
   0005-hid-asis-add-platform-device-and-relative-sysfs.patch
   0006-Add-asus-platform-and-send-USB-ABORT_PIPE-befor-slee.patch
 
-  v2-0001-platform-x86-asus-wmi-disable-USB0-hub-on-ROG-All.patch
+  v666-0001-platform-x86-asus-wmi-disable-USB0-hub-on-ROG-A.patch
 
   0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
   0002-ALSA-hda-cs35l41-Improve-support-for-ASUS-ROG-Ally.patch
@@ -112,7 +112,7 @@ b2sums=(
         'c27968ad1c714a02b801f5348f53ba6d45d7bc786b0626915539553bd5f1868d67cdbee141c0488b9c32c40ad99c55f214bca2ffc639a1214866474fbc1a79e7' # 0004-hid-asus-Improve-function-signature.patch
         '7df0c3b25d386592f6ec7e055e44aad462fed722feb67ac25667f1d71dbc9004a7c76c4a68757bd1e2684257817d027c0df708b04b6927bc86e65f4358320f99' # 0005-hid-asis-add-platform-device-and-relative-sysfs.patch
         '50aaf349f79d13b2c66c991aa31463041cf8f23cd615ef6c639c3199f25c9ea07166ec0749b960b8d6e74ef75d22203dd5c210d482b58fd297fc191a38d5dae5' # 0006-Add-asus-platform-and-send-USB-ABORT_PIPE-befor-slee.patch
-        '87aecd2edb9482554b77de8de1262926079fd21969151e44d4411b76c8585c93b5db32d964a72bbaa84752e58841bcf8690a2602ced8bd3b8150976e49331520' # v2-0001-platform-x86-asus-wmi-disable-USB0-hub-on-ROG-All.patch
+        '82055da349f4cd8d578d29bf3d3d8ca23c3ce82036e47d2b0c010563848beb46a5e4713f7f7f4c485feeea20fc9a1b68f8cbcd9488febdd2b74fe6b005716ba6' # v666-0001-platform-x86-asus-wmi-disable-USB0-hub-on-ROG-A.patch
         '448cb3800afb17d01c7d37ce9d11a75ec4eb05d968299cf6d86f50f0ba22f7670315a9ac5160348a12be3a83906e95a024466cc854a366dda14289a3b92a6aaf' # 0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
         '3abdb17aa93bbcc6f81c0a0cbb1fa2c15ba942be893b76855bb7303983347b796f8ec9e8cd0b8dc305a404bc528536cf39b12d880930a8c9bc4d8b06aaed4880' # 0002-ALSA-hda-cs35l41-Improve-support-for-ASUS-ROG-Ally.patch
         '5d5564215f45ccfb982cd599b7484800e0683b32ad9b06585a6d1400bc0635352c52b7760f59e4884eb933593f8168c254812d4b7a70335ca994703f46c2aa39' # ROG-ALLY-NCT6775-PLATFORM.patch
