@@ -1,0 +1,104 @@
+diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
+index 6a79f16233ab..7d52b7ab127b 100644
+--- a/drivers/platform/x86/asus-wmi.c
++++ b/drivers/platform/x86/asus-wmi.c
+@@ -262,6 +262,7 @@ struct asus_wmi {
+ 	bool egpu_connect_available;
+ 	bool dgpu_disable_available;
+ 	bool gpu_mux_mode_available;
++	bool mcu_powersave_available;
+ 
+ 	/* Tunables provided by ASUS for gaming laptops */
+ 	bool ppt_pl2_sppt_available;
+@@ -854,6 +855,52 @@ static ssize_t gpu_mux_mode_store(struct device *dev,
+ }
+ static DEVICE_ATTR_RW(gpu_mux_mode);
+ 
++/* MCU powersave *************************************************************/
++static ssize_t mcu_powersave_show(struct device *dev,
++				 struct device_attribute *attr, char *buf)
++{
++	struct asus_wmi *asus = dev_get_drvdata(dev);
++	int result;
++
++	result = asus_wmi_get_devstate_simple(asus, ASUS_WMI_DEVID_MCU_POWERSAVE);
++	if (result < 0)
++		return result;
++
++	return sysfs_emit(buf, "%d\n", result);
++}
++
++static ssize_t mcu_powersave_store(struct device *dev,
++				  struct device_attribute *attr,
++				  const char *buf, size_t count)
++{
++	struct asus_wmi *asus = dev_get_drvdata(dev);
++	int result, err;
++	u32 powersave;
++
++	err = kstrtou32(buf, 10, &powersave);
++	if (err)
++		return err;
++
++	if (powersave > 1)
++		return -EINVAL;
++
++	err = asus_wmi_set_devstate(ASUS_WMI_DEVID_MCU_POWERSAVE, powersave, &result);
++	if (err) {
++		dev_err(dev, "Failed to set mcu_powersave mode: %d\n", err);
++		return err;
++	}
++	/* !1 is considered a fail by ASUS */
++	if (result != 1) {
++		dev_warn(dev, "Failed to set mcu_powersave mode (result): 0x%x\n", result);
++		return -EIO;
++	}
++
++	sysfs_notify(&asus->platform_device->dev.kobj, NULL, "mcu_powersave");
++
++	return count;
++}
++static DEVICE_ATTR_RW(mcu_powersave);
++
+ /* TUF Laptop Keyboard RGB Modes **********************************************/
+ static ssize_t kbd_rgb_mode_store(struct device *dev,
+ 				 struct device_attribute *attr,
+@@ -4152,6 +4199,7 @@ static struct attribute *platform_attributes[] = {
+ 	&dev_attr_egpu_connected.attr,
+ 	&dev_attr_dgpu_disable.attr,
+ 	&dev_attr_gpu_mux_mode.attr,
++	&dev_attr_mcu_powersave.attr,
+ 	&dev_attr_lid_resume.attr,
+ 	&dev_attr_als_enable.attr,
+ 	&dev_attr_fan_boost_mode.attr,
+@@ -4196,6 +4244,8 @@ static umode_t asus_sysfs_is_visible(struct kobject *kobj,
+ 		ok = asus->dgpu_disable_available;
+ 	else if (attr == &dev_attr_gpu_mux_mode.attr)
+ 		ok = asus->gpu_mux_mode_available;
++	else if (attr == &dev_attr_mcu_powersave.attr)
++		ok = asus->mcu_powersave_available;
+ 	else if (attr == &dev_attr_fan_boost_mode.attr)
+ 		ok = asus->fan_boost_mode_available;
+ 	else if (attr == &dev_attr_throttle_thermal_policy.attr)
+@@ -4477,6 +4527,7 @@ static int asus_wmi_add(struct platform_device *pdev)
+ 	asus->egpu_connect_available = asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_EGPU_CONNECTED);
+ 	asus->dgpu_disable_available = asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_DGPU);
+ 	asus->gpu_mux_mode_available = asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_GPU_MUX);
++	asus->mcu_powersave_available = asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_MCU_POWERSAVE);
+ 	asus->kbd_rgb_mode_available = asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_TUF_RGB_MODE);
+ 	asus->kbd_rgb_state_available = asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_TUF_RGB_STATE);
+ 	asus->ppt_pl2_sppt_available = asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_PPT_PL2_SPPT);
+diff --git a/include/linux/platform_data/x86/asus-wmi.h b/include/linux/platform_data/x86/asus-wmi.h
+index 63e630276499..ab1c7deff118 100644
+--- a/include/linux/platform_data/x86/asus-wmi.h
++++ b/include/linux/platform_data/x86/asus-wmi.h
+@@ -114,6 +114,9 @@
+ /* Charging mode - 1=Barrel, 2=USB */
+ #define ASUS_WMI_DEVID_CHARGE_MODE	0x0012006C
+ 
++/* MCU powersave mode */
++#define ASUS_WMI_DEVID_MCU_POWERSAVE   0x001200E2
++
+ /* epu is connected? 1 == true */
+ #define ASUS_WMI_DEVID_EGPU_CONNECTED	0x00090018
+ /* egpu on/off */

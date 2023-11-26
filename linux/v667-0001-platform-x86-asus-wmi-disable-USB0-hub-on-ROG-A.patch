@@ -1,0 +1,197 @@
+From 8eeb920b4ba2ee621c1a21d4ca3152de17d6786d Mon Sep 17 00:00:00 2001
+From: "Luke D. Jones" <luke@ljones.dev>
+Date: Fri, 24 Nov 2023 21:13:11 +1300
+Subject: [PATCH v667] platform/x86: asus-wmi: disable USB0 hub on ROG Ally
+ before suspend
+
+ASUS have worked around an issue in XInput where it doesn't support USB
+selective suspend, whcih causes suspend issues in Windows. They worked
+around this by adjusting the MCU firmware to disable the USB0 hub when
+the screen is switched off during the Microsoft DSM suspend path in ACPI.
+
+The issue we have with this however is one of timing - the call the tells
+the MCU to this isn't able to complete before suspend is done so we call
+this in a prepare() and add a small msleep() to ensure it is done. This
+must be done before the screen is switched off to prevent a variety of
+possible races.
+
+Without this the MCU is unable to initialise itself correctly on resume.
+
+Signed-off-by: Luke D. Jones <luke@ljones.dev>
+---
+ drivers/platform/x86/asus-wmi.c | 103 ++++++++++++++++++++++++++++++++
+ 1 file changed, 103 insertions(+)
+
+diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
+index 6a79f16233ab..b6bada4247c6 100644
+--- a/drivers/platform/x86/asus-wmi.c
++++ b/drivers/platform/x86/asus-wmi.c
+@@ -16,6 +16,7 @@
+ #include <linux/acpi.h>
+ #include <linux/backlight.h>
+ #include <linux/debugfs.h>
++#include <linux/delay.h>
+ #include <linux/dmi.h>
+ #include <linux/fb.h>
+ #include <linux/hwmon.h>
+@@ -132,6 +133,9 @@ module_param(fnlock_default, bool, 0444);
+ #define ASUS_SCREENPAD_BRIGHT_MAX 255
+ #define ASUS_SCREENPAD_BRIGHT_DEFAULT 60
+ 
++/* Controls the power state of the USB0 hub on ROG Ally which input is on */
++#define ASUS_USB0_PWR_EC0_CSEE "\\_SB.PCI0.SBRG.EC0.CSEE"
++
+ static const char * const ashs_ids[] = { "ATK4001", "ATK4002", NULL };
+ 
+ static int throttle_thermal_policy_write(struct asus_wmi *);
+@@ -300,6 +304,10 @@ struct asus_wmi {
+ 
+ 	bool fnlock_locked;
+ 
++	/* The ROG Ally device requires the USB hub to be disabled before suspend */
++	bool ally_mcu_reset;
++	u32 ec0_csee_wait;
++
+ 	struct asus_wmi_debug debug;
+ 
+ 	struct asus_wmi_driver *driver;
+@@ -2141,6 +2149,60 @@ static ssize_t mini_led_mode_store(struct device *dev,
+ }
+ static DEVICE_ATTR_RW(mini_led_mode);
+ 
++/* MCU THING **************************************************************/
++static ssize_t mcu_msleep_show(struct device *dev,
++				   struct device_attribute *attr, char *buf)
++{
++	struct asus_wmi *asus = dev_get_drvdata(dev);
++	return sysfs_emit(buf, "%d\n", asus->ec0_csee_wait);
++}
++
++static ssize_t mcu_msleep_store(struct device *dev,
++				    struct device_attribute *attr,
++				    const char *buf, size_t count)
++{
++	int result;
++	u32 ms;
++
++	struct asus_wmi *asus = dev_get_drvdata(dev);
++
++	result = kstrtou32(buf, 10, &ms);
++	if (result)
++		return result;
++
++	asus->ec0_csee_wait = ms;
++
++	sysfs_notify(&asus->platform_device->dev.kobj, NULL, "mcu_msleep");
++
++	return count;
++}
++static DEVICE_ATTR_RW(mcu_msleep);
++
++static ssize_t mcu_reset_store(struct device *dev,
++				    struct device_attribute *attr,
++				    const char *buf, size_t count)
++{
++	int result;
++	bool mode;
++
++	struct asus_wmi *asus = dev_get_drvdata(dev);
++
++	result = kstrtobool(buf, &mode);
++	if (result)
++		return result;
++
++	if (mode) {
++		acpi_execute_simple_method(NULL, ASUS_USB0_PWR_EC0_CSEE, 0xB7);
++		msleep(asus->ec0_csee_wait);
++		acpi_execute_simple_method(NULL, ASUS_USB0_PWR_EC0_CSEE, 0xB8);
++	}
++
++	sysfs_notify(&asus->platform_device->dev.kobj, NULL, "mcu_reset");
++
++	return count;
++}
++static DEVICE_ATTR_WO(mcu_reset);
++
+ /* Quirks *********************************************************************/
+ 
+ static void asus_wmi_set_xusb2pr(struct asus_wmi *asus)
+@@ -4165,6 +4227,8 @@ static struct attribute *platform_attributes[] = {
+ 	&dev_attr_nv_temp_target.attr,
+ 	&dev_attr_panel_od.attr,
+ 	&dev_attr_mini_led_mode.attr,
++	&dev_attr_mcu_msleep.attr,
++	&dev_attr_mcu_reset.attr,
+ 	NULL
+ };
+ 
+@@ -4218,6 +4282,10 @@ static umode_t asus_sysfs_is_visible(struct kobject *kobj,
+ 		ok = asus->panel_overdrive_available;
+ 	else if (attr == &dev_attr_mini_led_mode.attr)
+ 		ok = asus->mini_led_mode_available;
++	else if (attr == &dev_attr_mcu_msleep.attr)
++		ok = asus->ally_mcu_reset;
++	else if (attr == &dev_attr_mcu_reset.attr)
++		ok = asus->ally_mcu_reset;
+ 
+ 	if (devid != -1)
+ 		ok = !(asus_wmi_get_devstate_simple(asus, devid) < 0);
+@@ -4488,6 +4556,11 @@ static int asus_wmi_add(struct platform_device *pdev)
+ 	asus->nv_temp_tgt_available = asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_NV_THERM_TARGET);
+ 	asus->panel_overdrive_available = asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_PANEL_OD);
+ 	asus->mini_led_mode_available = asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_MINI_LED_MODE);
++	asus->ally_mcu_reset = acpi_has_method(NULL, ASUS_USB0_PWR_EC0_CSEE)
++						&& dmi_match(DMI_BOARD_NAME, "RC71L");
++	
++	if (asus->ally_mcu_reset)
++		asus->ec0_csee_wait = 500;
+ 
+ 	err = fan_boost_mode_check_present(asus);
+ 	if (err)
+@@ -4654,6 +4727,34 @@ static int asus_hotk_resume(struct device *device)
+ 		asus_wmi_fnlock_update(asus);
+ 
+ 	asus_wmi_tablet_mode_get_state(asus);
++
++	// if (asus->ally_mcu_reset) {
++	// 	acpi_execute_simple_method(NULL, ASUS_USB0_PWR_EC0_CSEE, 0xB8);
++	// 	msleep(asus->ec0_csee_wait);
++	// 	asus->kbd_led_wk = clamp_val(1, 0, asus->kbd_led.max_brightness);
++	// 	kbd_led_update(asus);
++	// }
++
++	return 0;
++}
++
++static int asus_hotk_resume_early(struct device *device)
++{
++	struct asus_wmi *asus = dev_get_drvdata(device);
++	if (asus->ally_mcu_reset) {
++		acpi_execute_simple_method(NULL, ASUS_USB0_PWR_EC0_CSEE, 0xB8);
++		msleep(asus->ec0_csee_wait);
++	}
++	return 0;
++}
++
++static int asus_hotk_prepare(struct device *device)
++{
++	struct asus_wmi *asus = dev_get_drvdata(device);
++	if (asus->ally_mcu_reset) {
++		acpi_execute_simple_method(NULL, ASUS_USB0_PWR_EC0_CSEE, 0xB7);
++		msleep(asus->ec0_csee_wait);
++	}
+ 	return 0;
+ }
+ 
+@@ -4701,6 +4802,8 @@ static const struct dev_pm_ops asus_pm_ops = {
+ 	.thaw = asus_hotk_thaw,
+ 	.restore = asus_hotk_restore,
+ 	.resume = asus_hotk_resume,
++	.resume_early = asus_hotk_resume_early,
++	.prepare = asus_hotk_prepare,
+ };
+ 
+ /* Registration ***************************************************************/
+-- 
+2.43.0
+
