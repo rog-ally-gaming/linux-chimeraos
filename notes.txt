@@ -1,0 +1,1 @@
+this would show you the patches on top of upstream 6.6.3: https://github.com/ChimeraOS/linux/compare/bd3a9e5771a8b332f466d06f7c130a69cab0d526...v6.6.3-chos2
