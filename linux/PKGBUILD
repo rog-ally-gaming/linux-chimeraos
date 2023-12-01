@@ -41,60 +41,10 @@ _srcname=chimeraos-linux
 source=(
   #https://cdn.kernel.org/pub/linux/kernel/v$_srcserie/linux-$_srctag.tar.xz
   
-  https://gitlab.com/xanmod/linux/-/archive/6.6.3-xanmod1.tar.bz2
+  https://github.com/NeroReflex/linux/archive/refs/heads/frankenstein_6.6.zip
   
   config  # the main kernel config file
   config-chimera # our config that will be merged
-
-  # Arch Linux patches
-  #0001-ZEN-Add-sysctl-and-CONFIG-to-disallow-unprivileged-C.patch
-  #0003-tpm-Enable-hwrng-only-for-Pluton-on-AMD-CPUs.patch
-  0004-sphinx-kfigure.py-Convert-outdir-to-str-before-using.patch
-
-  # ChimeraOS specific patches
-  # Some patches from TKG Team
-  0001-mm-Support-soft-dirty-flag-reset-for-VA-range.patch
-
-  0001-add-hid_id-and-keys-for-ASUS-ROG-ALLY.patch
-  0002-usb-Add-a-mode-switch-for-the-controller-embedded-on.patch
-  0003-asus-hid-set-led-brightness-at-resume-as-it-was-left.patch
-  0004-hid-asus-Improve-function-signature.patch
-  0005-hid-asis-add-platform-device-and-relative-sysfs.patch
-  0006-Add-asus-platform-and-send-USB-ABORT_PIPE-befor-slee.patch
-
-  v667-0001-platform-x86-asus-wmi-disable-USB0-hub-on-ROG-A.patch
-  mcu-powersave.patch
-
-  0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
-  0002-ALSA-hda-cs35l41-Improve-support-for-ASUS-ROG-Ally.patch
-
-  ROG-ALLY-NCT6775-PLATFORM.patch
-
-  0001-add-GPU-reset-sysfs-event.patch
-
-  #HDR patches
-  0001-HDR.patch
-
-  0012-misc-additions.patch
-
-  #0007-fsync1_via_futex_waitv.patch
-
-  #0006-add-acs-overrides_iommu.patch
-
-  # More CPU architectures
-  #more-uarches-for-kernel-5.17+.patch
-
-  #0007-winesync.patch
-
-  0013-optimize_harder_O3.patch
-
-  0001-add-acpi_call.patch
-
-  bmc150.patch
-
-  uinput.patch
-
-  #test.patch
 )
 
 validpgpkeys=(
@@ -104,35 +54,9 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-        '58678a0c869e36d320327376116604199972f798864ac02973a0c687f6311e3954bc0cb9a56119094d61ddc63727c89c59656ebb7405a675d11cdbf79fc454a6' # kernel source
-        '6dc1f7bd6a51d3c6ce55d0adddfa28e5b14bd6f3dd334055ab4ed06922be3f1311cfc36aa9a8674ce0696c11d163ec390f31bf61693585c5192dc3eecce1e9bf' # config
-        '17d2cd571bc843106ec2b7cec85b550901443f37779304129a05be39651eca65fa9c3f5fd575336e57c3c5af9d0ddca5277da8db742083b32d40266cf623947c' # config-chimera
-        #'35428a30c1e4de8c78c418b797d99f8bc58e7a2d57d488e47a8f3ea7fb8e1e9af4dce85b93333abcf1dfcf77ed34c1b5261c9db58b5c6661edf9fd34cac67d8d' # 0001-ZEN-Add-sysctl-and-CONFIG-to-disallow-unprivileged-C.patch
-        '8bde0d883cb8127f292d591cc0f0cf6378132765b0fc8ff1760cf14c1673436fbd73768b81b22355ee5d58042149ef6cefec6788f0142cfee8bf217df70d16b8' # 0004-sphinx-kfigure.py-Convert-outdir-to-str-before-using.patch
-        'e2e364387efe34a1a392cdf9801b6f164d84de428edd8e43ccb1f12690019078db297b9dcf61a5dd4a83ca40dca8f25d9117e240c1ffd8b969d81e4dc6e972fd' # 0001-mm-Support-soft-dirty-flag-reset-for-VA-range.patch
-        '92ba9d2881ac68dba158bbb331262f760cf0e9a5e69caf4e20e86fb44ab8cddb676d8e04f2ddf808e1e13dbf3399e08923a5f091508966b8fc71fb2b251e55d6' # 0001-add-hid_id-and-keys-for-ASUS-ROG-ALLY.patch
-        '08c138640813a9f661ee40546295754b7c411063385e802ccaca4d45d8454339c4cd469be57f9c222d509ca86ac1f505adc68cb8ac9b515e7e67e6c03240156f' # 0002-usb-Add-a-mode-switch-for-the-controller-embedded-on.patch
-        'd2f89317f37f871913804fb03fa63c85ec1d2de9b5e13af41abfd50d508e73a44b03c646187157f2de44144a75828eab371f9584858565692e2c7221acaca60b' # 0003-asus-hid-set-led-brightness-at-resume-as-it-was-left.patch
-        'c27968ad1c714a02b801f5348f53ba6d45d7bc786b0626915539553bd5f1868d67cdbee141c0488b9c32c40ad99c55f214bca2ffc639a1214866474fbc1a79e7' # 0004-hid-asus-Improve-function-signature.patch
-        '7df0c3b25d386592f6ec7e055e44aad462fed722feb67ac25667f1d71dbc9004a7c76c4a68757bd1e2684257817d027c0df708b04b6927bc86e65f4358320f99' # 0005-hid-asis-add-platform-device-and-relative-sysfs.patch
-        '50aaf349f79d13b2c66c991aa31463041cf8f23cd615ef6c639c3199f25c9ea07166ec0749b960b8d6e74ef75d22203dd5c210d482b58fd297fc191a38d5dae5' # 0006-Add-asus-platform-and-send-USB-ABORT_PIPE-befor-slee.patch
-        'c39386e6dfa0e7b175f0d1e773708115fec9f3c4b6e7056e5ca17a8cfa2ee77e162f82d2cb07d7640b9cc855a4d3cfa26e8d873158bb625bf4535fd76bf10d0c' # v667-0001-platform-x86-asus-wmi-disable-USB0-hub-on-ROG-A.patch
-        'de40faed99b248c736ac9a83db2aebc04cac62e7291746aaaefc838836f2dda157793693d9573b912eb82fec74535783586a29c8e937a3b789d96ece3fe3b2a5' # mcu-powersave.patch
-        '448cb3800afb17d01c7d37ce9d11a75ec4eb05d968299cf6d86f50f0ba22f7670315a9ac5160348a12be3a83906e95a024466cc854a366dda14289a3b92a6aaf' # 0001-ALSA-hda-cs35l41-Support-ASUS-2023-laptops-with-miss.patch
-        '3abdb17aa93bbcc6f81c0a0cbb1fa2c15ba942be893b76855bb7303983347b796f8ec9e8cd0b8dc305a404bc528536cf39b12d880930a8c9bc4d8b06aaed4880' # 0002-ALSA-hda-cs35l41-Improve-support-for-ASUS-ROG-Ally.patch
-        '5d5564215f45ccfb982cd599b7484800e0683b32ad9b06585a6d1400bc0635352c52b7760f59e4884eb933593f8168c254812d4b7a70335ca994703f46c2aa39' # ROG-ALLY-NCT6775-PLATFORM.patch
-        '6a4d78d637ba0fdb5a43cb2a21504829d721838f95a18ff96aaec7fd2f66898164827fbcb983a9d0fabbfd4d96982ecdd531e464cdc50a1b79d349e2c506b1c4' # 0001-add-GPU-reset-sysfs-event.patch
-        '6490d86b359c0e5484eab77ab5650d0a8d24ab0e17977c8f2202169dfadcd5462db1d26df7e734b07eb7010b2832ef4937220fb7b86cb1a173d851212bf7ebc9' # 0001-HDR.patch
-        '27391bc98320689351abc6815e67f169527cba0a9ad043c7b117e1f273a3500466a0f989b079f35a1ab3cfa5627439cb94c12fa1f593d6c227ddcfb42f80fb79' # 0012-misc-additions.patch
-        #'c7c7d8d3aed7f9ec1ed8e972d8e5f0abbd9eadfb6dad8bf66c63f780a85107a4d5a04ed3ff7fbb8840ff28cd439d58e5df934229e8ffd8492a9f230adcd3e693' # 0007-fsync1_via_futex_waitv.patch
-        #'c2d2b6bd8e94d4c9725720128419ef571576c97a792c690a80d97753cdf1afde20103c5479d18ae3825fa7b72d2dbe7ee2d5838351d041f03f65c6246d69245e' # 0006-add-acs-overrides_iommu.patch
-        #'508ff463d936e07e0c3ac2017da12bda52d3db5d98d45fe908f35c4d9fadb253cc9d5c17b8915ec600b5024fcecc2746a04d32096e7ebf691438d4ab8bd067a8' # more-uarches-for-kernel-5.17+.patch
-        #'bdcf54a61b9b1706383cab7a2aa67ff8b62c2cb2503147efad5fc402003aef1a3ec046b9902c7409d2be49e9f16ca949b631e1ba47abef432235da6cf7b6a238' # 0007-winesync.patch
-        'a8654cdb24b573ab16b72565827ce6fcc9dae2a575db23f789e9760e2f9cdd7653fa9bb7364e1625f90ed377c447a5c079d4b5d71f22313b8d3361033d79bcae' # 0013-optimize_harder_O3.patch
-        'c9b8f744a6bacd37d33a78c31a815ab0c6bc3f78ecd62f094780b115f49fbe9f4d49477f71efcac682cc8d6c8b0a3685029b118845d220647f165e1fc151ce2a' # 0001-add-acpi_call.patch
-        '41dc47bb1974e9fe1dac41b253f1a925f41bed0a4027821204c662a180fba1fd3dfde2cd950e85e20185ea720fa8696165cde11331fe6b8b7ecd42030ba8bf0f' # bmc150.patch
-        'd4d19744a2d25c80e484846c26c8f5ab531db060e966d8af7dce4de444b01a8692f9e6abf29ebc508980444dbe4c4bd9a91900f3993ff484a222bd3b675ef14c' # uinput.patch
-        #'SKIP'
+  'a8e2fb1b050ded92e372cf68466eca090cad97317b2553179821a42209a3d1601994f6db9fe1088e916575b61b634a90c9576e9faaa9fe3152b953f5ec82c622' # kernel source
+  '5932be78608dcb9a3110dccad64aab08f1e7abeaf5a12693faaac10daf2750d3279c9794033b3da35ac20c5d0f4ea2447173a8b2e3f5409a27a7c7cd2b61c36b' # config
+  '17d2cd571bc843106ec2b7cec85b550901443f37779304129a05be39651eca65fa9c3f5fd575336e57c3c5af9d0ddca5277da8db742083b32d40266cf623947c' # config-chimera
 )
 
 export KBUILD_BUILD_HOST=archlinux
@@ -148,7 +72,7 @@ _make() {
 
 prepare() {
   #mv "linux-${_srctag}" $_srcname
-  mv "linux-6.6.3-xanmod1-a77a68c619ac66bb62183fbf2205f630412e1f5d" $_srcname
+  mv "linux-frankenstein_6.6" $_srcname
   cd $_srcname
 
   echo "Setting version..."
