@@ -72,8 +72,9 @@ _make() {
 
 prepare() {
   #mv "linux-${_srctag}" $_srcname
-  mv "linux-frankenstein_6.6" $_srcname
+  cp -r "linux-frankenstein_6.6" $_srcname
   cd $_srcname
+  rm -rf "../linux-frankenstein_6.6"
 
   echo "Setting version..."
   echo "${pkgbase#linux}" > localversion.10-pkgname
