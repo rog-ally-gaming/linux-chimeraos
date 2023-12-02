@@ -57,11 +57,6 @@ jobs:
           . /home/build/linux/PKGBUILD
           full_version=${pkgver}-${pkgrel}
           echo "full_version=$full_version" >> "$GITHUB_OUTPUT"
-      - name: Show configuration diff
-        id: config-diff
-        shell: bash
-        run: |
-          diff -u /home/build/linux/config /home/build/linux/src/chimeraos-linux/.config
       - name: Upload package artifact
         uses: actions/upload-artifact@v3
         with:
