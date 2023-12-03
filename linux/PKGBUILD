@@ -1,13 +1,11 @@
-# Maintainer: Jan Alexander Steffens (heftig) <heftig@archlinux.org>
-# Maintainer: Joaquín I. Aramendía (samsagax) <samsagaxg@gmail.com>
+# Maintainer: Denis Benato <benato.denis96@gmail.com>
+# Contributor: Jan Alexander Steffens (heftig) <heftig@archlinux.org>
+# Contributor: Joaquín I. Aramendía (samsagax) <samsagaxg@gmail.com>
 
 pkgbase=linux-neroreflex
-pkgver=6.6.3.nrflx1
+pkgver=6.6.4.nrflx1
 pkgrel=1
 pkgdesc='Linux NeroReflex'
-#_srctag=${pkgver%.*}
-_srcserie='6.x'
-_srctag='6.6.3'
 url="https://github.com/NeroReflex/linux-chimeraos"
 arch=(x86_64)
 license=(GPL2)
@@ -37,12 +35,10 @@ optdepends=(
   'clang: needed when using dkms'
 )
 options=('!strip')
-_srcname=chimeraos-linux
+_srcname=kernel_src
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.6.4-fluke_v5.tar.gz"
 source=(
-  #https://cdn.kernel.org/pub/linux/kernel/v$_srcserie/linux-$_srctag.tar.xz
-  
-  https://github.com/NeroReflex/linux/archive/refs/heads/frankenstein_6.6.zip
-  
+  $_source_url # the source for the kernel release
   config  # the main kernel config file
   config-chimera # our config that will be merged
 )
@@ -54,8 +50,8 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-  '42250b06b79d98371eff7ead0395d93af7bc4b0133ba833db86d3bc1eca6c125a270893728fecfc5dbcd5e494fa25e17be387d51ffa8bd43278a17626d377ef3' # kernel source
-  'e03dac9bfdf03793e3c32a54e2ad471fa219b8921cb5375a6b76ecd1568e645fbeb60e8629ee319090737e433b4a49e7a7ac4a072a65af6691df173b32ed1e86' # config
+  '967f6541f47ea7a17fd2a72e49827911360916ce7eac9139086a4c0da43d73e915b8539c71ac75c8b44a7a3865d40075b2039180aa581af3541d9676222f742e' # kernel source
+  '72e4dd152f674a13106be7744c388b592f7ac2c5dc306de9efe2166498a5f73a58c09ebe5fd14060475ca32bc26e3dedf62914c8e4d297220e3fa6b9884e66a3' # config
   '17d2cd571bc843106ec2b7cec85b550901443f37779304129a05be39651eca65fa9c3f5fd575336e57c3c5af9d0ddca5277da8db742083b32d40266cf623947c' # config-chimera
 )
 
@@ -71,10 +67,10 @@ _make() {
 }
 
 prepare() {
-  #mv "linux-${_srctag}" $_srcname
-  cp -r "linux-frankenstein_6.6" $_srcname
+  dirname=$(find -maxdepth 1 -type d | grep "linux")
+  cp -r $dirname $_srcname
   cd $_srcname
-  rm -rf "../linux-frankenstein_6.6"
+  rm -rf "$dirname"
 
   echo "Setting version..."
   echo "${pkgbase#linux}" > localversion.10-pkgname
