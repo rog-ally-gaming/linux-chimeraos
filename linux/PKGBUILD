@@ -36,7 +36,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.6.4-fluke_v5-pstate-fix.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.6.4-fluke_v7.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
@@ -50,7 +50,7 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-  '2473a24d1fd3bf178558567f100dd34df587e4d2695a3359027be92897686ac5923296e3ea4800f08db4996d3783739706ae7462a9e4e6e75819ba66cfcff573' # kernel source
+  '84e0e83b6df4d0547550c7f4a2f54d3f0ef9c4d25d1f39577769bc848ef3435a0fa2ab5c110d6861ae5471a4ccc53df19cb51b3d0dd20bc2bddcad800110d562' # kernel source
   '52959aa7c15ee02a014ecf3c31cfce42bcdb3bba142e889eae04235d81a474348e9259986987754b3cacac43b23708bfb467ca643e48087f6df4fd664e1957fe' # config
   '17d2cd571bc843106ec2b7cec85b550901443f37779304129a05be39651eca65fa9c3f5fd575336e57c3c5af9d0ddca5277da8db742083b32d40266cf623947c' # config-chimera
 )
