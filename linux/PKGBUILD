@@ -3,7 +3,7 @@
 # Contributor: Joaquín I. Aramendía (samsagax) <samsagaxg@gmail.com>
 
 pkgbase=linux-neroreflex
-pkgver=6.6.4.nrflx1
+pkgver=6.6.5.nrflx1
 pkgrel=1
 pkgdesc='Linux NeroReflex'
 url="https://github.com/NeroReflex/linux-chimeraos"
@@ -36,7 +36,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.6.4-fluke_v7.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.6.5-fluke_v14.1.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
@@ -50,8 +50,8 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-  '84e0e83b6df4d0547550c7f4a2f54d3f0ef9c4d25d1f39577769bc848ef3435a0fa2ab5c110d6861ae5471a4ccc53df19cb51b3d0dd20bc2bddcad800110d562' # kernel source
-  '52959aa7c15ee02a014ecf3c31cfce42bcdb3bba142e889eae04235d81a474348e9259986987754b3cacac43b23708bfb467ca643e48087f6df4fd664e1957fe' # config
+  'cfcab8fd9401b4bcb0304c01d96f2e896cdeb1979dc9f0e8bdc2747537f03e2ac26688df40721088f77b90e7d9f6a66a30f52a52b5cec4713bb6d3958a87addf' # kernel source
+  '397f7aac1269024c8a19c15bd9b5699507da404cfd5397603ba808d8dd2cf44202ee763bcde4f2dcad168f3242a7fe04bc3e102d18cd71efb5a5ee6d5bec4515' # config
   '17d2cd571bc843106ec2b7cec85b550901443f37779304129a05be39651eca65fa9c3f5fd575336e57c3c5af9d0ddca5277da8db742083b32d40266cf623947c' # config-chimera
 )
 
