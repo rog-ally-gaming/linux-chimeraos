@@ -36,7 +36,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.6.5-fluke_v14.1-amdgpu-fix.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.6.4-fluke_v14.1.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
@@ -50,7 +50,7 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-  '5c0be9183aabee30471413efec10551a74f6b453baba6d3f3c112ae224acf4f3e56483c94d15695f8d9dd5a0e76f7e37dd0dee2cd7153bcedf33d9b2c20ced65' # kernel source
+  '58ed32374a656820b024d877f4f45a51cefd8ab29ec3774619d12fc3efc103b23af2d2c19ddd1a4466ac629b3a5317899c5f4c9dfb455438229432e583334ccd' # kernel source
   '397f7aac1269024c8a19c15bd9b5699507da404cfd5397603ba808d8dd2cf44202ee763bcde4f2dcad168f3242a7fe04bc3e102d18cd71efb5a5ee6d5bec4515' # config
   '17d2cd571bc843106ec2b7cec85b550901443f37779304129a05be39651eca65fa9c3f5fd575336e57c3c5af9d0ddca5277da8db742083b32d40266cf623947c' # config-chimera
 )
