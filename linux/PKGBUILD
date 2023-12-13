@@ -36,7 +36,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.6.7.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.6.7-xanmod1-chos2.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
