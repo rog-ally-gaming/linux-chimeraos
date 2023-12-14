@@ -4,7 +4,7 @@
 
 pkgbase=linux-neroreflex
 pkgver=6.6.7.nrflx1
-pkgrel=1
+pkgrel=2
 pkgdesc='Linux NeroReflex'
 url="https://github.com/NeroReflex/linux-chimeraos"
 arch=(x86_64)
@@ -36,7 +36,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.6.7-xanmod1-chos2.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.6.7-xanmod1-chos1-hibernation.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
@@ -50,7 +50,7 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-  '11ba7190551bf149740a5aaa8b84cc495af95aad7a1743a5cb7f0d8ab3f0517e597dd5ce8db295ab5c5dc3bf111a87d3644243dd0593ec0293725f915a03f387' # kernel source
+  'bb4b9dff095f7141987b0b1f112842d419add9db940808639489081fbbc4a87134deffdf7b213189739b309baaa4f437ddf2795634bad346c673cb0c603585ea' # kernel source
   '397f7aac1269024c8a19c15bd9b5699507da404cfd5397603ba808d8dd2cf44202ee763bcde4f2dcad168f3242a7fe04bc3e102d18cd71efb5a5ee6d5bec4515' # config
   '17d2cd571bc843106ec2b7cec85b550901443f37779304129a05be39651eca65fa9c3f5fd575336e57c3c5af9d0ddca5277da8db742083b32d40266cf623947c' # config-chimera
 )
