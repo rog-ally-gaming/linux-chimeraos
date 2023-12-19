@@ -36,7 +36,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.6.7-xanmod1-chos1-fluke_v14.5.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.6.7-xanmod1-chos1-mount-matrix_v1.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
@@ -50,7 +50,7 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-  '71431f9c049e828d217019285fa916a4ac9d52399a1255942e78d70f97585dbb66f099367860c9075319be80367a8cd008091b56819307384b4466f4d1de08db' # kernel source
+  '143e2bbd3d431f04c8206ff38ac48ca95be33c05e5978da399ed432b7feeb3578c6dd036d3a9e6e4ea5a765e991bdb7d0a2321f0c304c94864399a2c152aa811' # kernel source
   '397f7aac1269024c8a19c15bd9b5699507da404cfd5397603ba808d8dd2cf44202ee763bcde4f2dcad168f3242a7fe04bc3e102d18cd71efb5a5ee6d5bec4515' # config
   '17d2cd571bc843106ec2b7cec85b550901443f37779304129a05be39651eca65fa9c3f5fd575336e57c3c5af9d0ddca5277da8db742083b32d40266cf623947c' # config-chimera
 )
