@@ -4,7 +4,7 @@
 
 pkgbase=linux-neroreflex
 pkgver=6.6.8.nrflx1
-pkgrel=1
+pkgrel=2
 pkgdesc='Linux NeroReflex'
 url="https://github.com/NeroReflex/linux-chimeraos"
 arch=(x86_64)
@@ -36,7 +36,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.6.8-xanmod1-chos1-fluke_v14.8.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.6.7-xanmod1-chos1-fluke_v14.8-1.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
@@ -50,7 +50,7 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-  '19c880b6d9092c0fc37fcaabc88353b160f79f337e0572f55977d858ebb2afac72562066221d7d7350d79e6765d7c99bc36becf4caaf9a7bd03686786ca14252' # kernel source
+  '7d84b6b3c76d29e498edfdb1f979f3e4139128a3b0c59a6c165d6e251fed40936a72f5c32e211d20278509706082be9a6acd668868ab8a0a852f50e6251496cc' # kernel source
   '397f7aac1269024c8a19c15bd9b5699507da404cfd5397603ba808d8dd2cf44202ee763bcde4f2dcad168f3242a7fe04bc3e102d18cd71efb5a5ee6d5bec4515' # config
   '17d2cd571bc843106ec2b7cec85b550901443f37779304129a05be39651eca65fa9c3f5fd575336e57c3c5af9d0ddca5277da8db742083b32d40266cf623947c' # config-chimera
 )
