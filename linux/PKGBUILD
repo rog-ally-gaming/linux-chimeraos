@@ -36,7 +36,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.7.0-xanmod1-chos1-fluke_v14.8-1.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.1.52-valve.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
@@ -50,8 +50,8 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-  '0cf3fb0580ceb246fa42e227382976b2cfb24c4b2a2e53839131356c7f8c558fe7c88be3ac6e935e696d61bda2d25db5a59a06e783334e28b58d8bc7add220d7' # kernel source
-  'cd870f7c51f50dd66a7a0f595afa89cd76b195854336c7c7f5ff6b0c243343d60a25e1fc9e7a5524cddbdc8ac9ca04916e7aa3e128017a8520dae1e12df96f9b' # config
+  '1b01e1d97d389a62137b4c9f0913f85da9e3b248f5be5438331e8d75b340bc1bbb0c41a0c2156f9ba012d9d4db2a2bccf0859d85ae4430234fc4db6b61782781' # kernel source
+  'cca55a0f8a38812d9bd90299020bd8f1d2605c79aeef2fca5054602057d6358799e025bdc9a8e76f9364dd9366af9921bfd30aab65f276d5957e2687cd6eb83c' # config
   '17d2cd571bc843106ec2b7cec85b550901443f37779304129a05be39651eca65fa9c3f5fd575336e57c3c5af9d0ddca5277da8db742083b32d40266cf623947c' # config-chimera
 )
 
