@@ -36,7 +36,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.1.52-valve.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.1.52-audio-2.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
@@ -50,8 +50,8 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-  '1b01e1d97d389a62137b4c9f0913f85da9e3b248f5be5438331e8d75b340bc1bbb0c41a0c2156f9ba012d9d4db2a2bccf0859d85ae4430234fc4db6b61782781' # kernel source
-  'b62e9f482d96b49d4061bc935b6811e396a8c45c982bb1bce41da9b78fae7f394c4c8d3853b7f0177d08be62a7d6835151ea120d3eca366a726c1f82ea9e5792' # config
+  '6451e7aa932e8e99cf9dd0532c33bb00339deb36cadc2b53af3d58b0143eae22c76cde34a9fba9697d9878a4aff50477de6463921d3990b2737d2f1b922ae300' # kernel source
+  '09a8b11909d1e60964c0011decf10e045a08c967fffe98e3ddf34026ee94a43f369d3e8af640703256ef1bcde659c372493f049271f0374f32796ce64ce40609' # config
   '17d2cd571bc843106ec2b7cec85b550901443f37779304129a05be39651eca65fa9c3f5fd575336e57c3c5af9d0ddca5277da8db742083b32d40266cf623947c' # config-chimera
 )
 
