@@ -36,7 +36,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.1.56-neptune-xanmod-chimeraos.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.1.52-vol-keys-fix.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
@@ -50,7 +50,7 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-  'd269a2573fbfa90181d4dc3f563d1b05fe796f2ff6b6486e7f57991e61ac4219c06b4d9b289a9b0427c59c13633f80d3f6d5dd3bfe5ee390379e3d3564071437' # kernel source
+  'ee55942943a036dc4bdb7042b42ef9bc0a1b36aa755e0845497f9e08073e9f866cef6f4484029457fbf96e1a0c9d130bbb8534887515f4990727e982244d6b65' # kernel source
   '09a8b11909d1e60964c0011decf10e045a08c967fffe98e3ddf34026ee94a43f369d3e8af640703256ef1bcde659c372493f049271f0374f32796ce64ce40609' # config
   '17d2cd571bc843106ec2b7cec85b550901443f37779304129a05be39651eca65fa9c3f5fd575336e57c3c5af9d0ddca5277da8db742083b32d40266cf623947c' # config-chimera
 )
