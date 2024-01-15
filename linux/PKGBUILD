@@ -36,7 +36,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.1.52-audio-2.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.1.56-neptune-xanmod-chimeraos.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
@@ -50,7 +50,7 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-  '6451e7aa932e8e99cf9dd0532c33bb00339deb36cadc2b53af3d58b0143eae22c76cde34a9fba9697d9878a4aff50477de6463921d3990b2737d2f1b922ae300' # kernel source
+  'd269a2573fbfa90181d4dc3f563d1b05fe796f2ff6b6486e7f57991e61ac4219c06b4d9b289a9b0427c59c13633f80d3f6d5dd3bfe5ee390379e3d3564071437' # kernel source
   '09a8b11909d1e60964c0011decf10e045a08c967fffe98e3ddf34026ee94a43f369d3e8af640703256ef1bcde659c372493f049271f0374f32796ce64ce40609' # config
   '17d2cd571bc843106ec2b7cec85b550901443f37779304129a05be39651eca65fa9c3f5fd575336e57c3c5af9d0ddca5277da8db742083b32d40266cf623947c' # config-chimera
 )
