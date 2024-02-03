@@ -3,7 +3,7 @@
 # Contributor: Joaquín I. Aramendía (samsagax) <samsagaxg@gmail.com>
 
 pkgbase=linux-neroreflex
-pkgver=6.1.73.nrflx1
+pkgver=6.1.76.nrflx1
 pkgrel=1
 pkgdesc='Linux NeroReflex'
 url="https://github.com/NeroReflex/linux-chimeraos"
@@ -36,11 +36,12 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.1.73-neroreflex-neptune.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.1.76-neroreflex-neptune.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
   config-chimera # our config that will be merged
+  config-neptune # config from valve
 )
 
 validpgpkeys=(
@@ -50,9 +51,10 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-  'd96cac674526b3d39e3833e7b0f6292bc86cd69264c3d443b6623cddc0b5e63ac71500ea9264e1d58f93f90dc8576a9563312534fbdc6d38e111418a8c4f1053' # kernel source
-  '09a8b11909d1e60964c0011decf10e045a08c967fffe98e3ddf34026ee94a43f369d3e8af640703256ef1bcde659c372493f049271f0374f32796ce64ce40609' # config
-  '17d2cd571bc843106ec2b7cec85b550901443f37779304129a05be39651eca65fa9c3f5fd575336e57c3c5af9d0ddca5277da8db742083b32d40266cf623947c' # config-chimera
+  '907107b1c03aca338150901456786212545bcd0e7e8933f8bd4da06b41fe201877fba6e8739b57af8d81e8cb2fe30d90f617d96b97a9d1a1627033bf08e00be3' # kernel source
+  '861b14dc576901663a5ac7516f28e0513abcfbe9427b8d30368b73aa17d650d6b2478adc7a07df534455247a65f92d6bbc446c41b6e63d2a125ee2615645e684' # config
+  '495bda89ec41980b5164b1402b44d895d31fd0b6881e4b37cd1c27e62173c2eb94646308eb80d8c581e7ecc0548902627e5f0da8971ce9a513bc12515dc42a25' # config-chimera
+  '955d527f144bd17783bd20919050070dedaaef8bb26614dde4a4031d3ed14b1d2cd90f49d26ab6e3f3b1c8bb05e10f7a263608ea6ce39bd021fbcafeecbc60d4' # config-neptune
 )
 
 export KBUILD_BUILD_HOST=archlinux
@@ -103,6 +105,7 @@ prepare() {
   cp ../config .config
   _make olddefconfig
   scripts/kconfig/merge_config.sh -m .config ../config-chimera
+  scripts/kconfig/merge_config.sh -m .config ../config-neptune
   diff -u ../config .config || :
 
   echo "Prepared $pkgbase version $(<version)"
