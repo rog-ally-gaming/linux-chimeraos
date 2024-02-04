@@ -4,7 +4,7 @@
 
 pkgbase=linux-neroreflex
 pkgver=6.1.76.nrflx1
-pkgrel=1
+pkgrel=2
 pkgdesc='Linux NeroReflex'
 url="https://github.com/NeroReflex/linux-chimeraos"
 arch=(x86_64)
