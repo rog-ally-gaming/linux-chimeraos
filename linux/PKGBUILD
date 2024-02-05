@@ -4,7 +4,7 @@
 
 pkgbase=linux-neroreflex
 pkgver=6.1.76.nrflx1
-pkgrel=2
+pkgrel=3
 pkgdesc='Linux NeroReflex'
 url="https://github.com/NeroReflex/linux-chimeraos"
 arch=(x86_64)
@@ -36,7 +36,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.1.76-neroreflex-neptune.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.1.76-wifi.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
@@ -51,7 +51,7 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-  '907107b1c03aca338150901456786212545bcd0e7e8933f8bd4da06b41fe201877fba6e8739b57af8d81e8cb2fe30d90f617d96b97a9d1a1627033bf08e00be3' # kernel source
+  '4426797f7b770948f68e7524681db29e55c7bf58f0bd90e9425c2f57516c926aaa9733ae049fb52155e95043289676d8f73382692bf6d17082a7cd9377993bb7' # kernel source
   '861b14dc576901663a5ac7516f28e0513abcfbe9427b8d30368b73aa17d650d6b2478adc7a07df534455247a65f92d6bbc446c41b6e63d2a125ee2615645e684' # config
   '495bda89ec41980b5164b1402b44d895d31fd0b6881e4b37cd1c27e62173c2eb94646308eb80d8c581e7ecc0548902627e5f0da8971ce9a513bc12515dc42a25' # config-chimera
   '955d527f144bd17783bd20919050070dedaaef8bb26614dde4a4031d3ed14b1d2cd90f49d26ab6e3f3b1c8bb05e10f7a263608ea6ce39bd021fbcafeecbc60d4' # config-neptune
