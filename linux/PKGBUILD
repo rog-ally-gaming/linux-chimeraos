@@ -3,8 +3,8 @@
 # Contributor: Joaquín I. Aramendía (samsagax) <samsagaxg@gmail.com>
 
 pkgbase=linux-neroreflex
-pkgver=6.1.76.nrflx1
-pkgrel=5
+pkgver=6.1.77.nrflx1
+pkgrel=1
 pkgdesc='Linux NeroReflex'
 url="https://github.com/NeroReflex/linux-chimeraos"
 arch=(x86_64)
@@ -36,7 +36,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.1.76-neroreflex-valve16.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.1.77-neroreflex-valve16.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
@@ -51,7 +51,7 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-  '2ee6e1f7423e86664f9cd915e59274d03482eee6c112c9985e4f0530607f9789b5e5dd89917b36eb97b652cbc82229ab986903c88cc9a2a17a3c094286dbe141' # kernel source
+  '40e809a3c4fba7c753be3eae4e80f7662487dd81d6ba5dc59c7c0ca602df695c89ec206499940aa34cdca8cf84671c1ccd201244190c7828dbf96b22d151aecf' # kernel source
   '861b14dc576901663a5ac7516f28e0513abcfbe9427b8d30368b73aa17d650d6b2478adc7a07df534455247a65f92d6bbc446c41b6e63d2a125ee2615645e684' # config
   '495bda89ec41980b5164b1402b44d895d31fd0b6881e4b37cd1c27e62173c2eb94646308eb80d8c581e7ecc0548902627e5f0da8971ce9a513bc12515dc42a25' # config-chimera
   '955d527f144bd17783bd20919050070dedaaef8bb26614dde4a4031d3ed14b1d2cd90f49d26ab6e3f3b1c8bb05e10f7a263608ea6ce39bd021fbcafeecbc60d4' # config-neptune
