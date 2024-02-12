@@ -3,7 +3,7 @@
 # Contributor: Joaquín I. Aramendía (samsagax) <samsagaxg@gmail.com>
 
 pkgbase=linux-neroreflex
-pkgver=6.1.77.nrflx1
+pkgver=6.8.0.rc3
 pkgrel=1
 pkgdesc='Linux NeroReflex'
 url="https://github.com/NeroReflex/linux-chimeraos"
@@ -36,12 +36,10 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.1.77-neroreflex-valve16.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.8-rc3.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
-  config-chimera # our config that will be merged
-  config-neptune # config from valve
 )
 
 validpgpkeys=(
@@ -51,10 +49,8 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-  '40e809a3c4fba7c753be3eae4e80f7662487dd81d6ba5dc59c7c0ca602df695c89ec206499940aa34cdca8cf84671c1ccd201244190c7828dbf96b22d151aecf' # kernel source
-  '861b14dc576901663a5ac7516f28e0513abcfbe9427b8d30368b73aa17d650d6b2478adc7a07df534455247a65f92d6bbc446c41b6e63d2a125ee2615645e684' # config
-  '495bda89ec41980b5164b1402b44d895d31fd0b6881e4b37cd1c27e62173c2eb94646308eb80d8c581e7ecc0548902627e5f0da8971ce9a513bc12515dc42a25' # config-chimera
-  '955d527f144bd17783bd20919050070dedaaef8bb26614dde4a4031d3ed14b1d2cd90f49d26ab6e3f3b1c8bb05e10f7a263608ea6ce39bd021fbcafeecbc60d4' # config-neptune
+  '86494e4b558538cb19637b3db4c39fa97f637e839aa63521d0bfa7d77e4c531f944bed7ca97257c20e0fd4b1b611aac0c305013f755fd9b173d10378ddf28ce6' # kernel source
+  'e174eac9ee5e4b6f6453c9f2ad3e61810bf11746f6959c4fe4ef56c63c5667e681d12232d8bcc00dd46e9e4b741448eaf301fec6f551b6acd3abb69c747ef878' # config
 )
 
 export KBUILD_BUILD_HOST=archlinux
@@ -104,8 +100,6 @@ prepare() {
   echo "Setting config..."
   cp ../config .config
   _make olddefconfig
-  scripts/kconfig/merge_config.sh -m .config ../config-chimera
-  scripts/kconfig/merge_config.sh -m .config ../config-neptune
   diff -u ../config .config || :
 
   echo "Prepared $pkgbase version $(<version)"
