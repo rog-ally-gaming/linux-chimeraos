@@ -36,7 +36,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.8-rc3.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.8-rc4-fix.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
@@ -49,8 +49,8 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-  '86494e4b558538cb19637b3db4c39fa97f637e839aa63521d0bfa7d77e4c531f944bed7ca97257c20e0fd4b1b611aac0c305013f755fd9b173d10378ddf28ce6' # kernel source
-  'e174eac9ee5e4b6f6453c9f2ad3e61810bf11746f6959c4fe4ef56c63c5667e681d12232d8bcc00dd46e9e4b741448eaf301fec6f551b6acd3abb69c747ef878' # config
+  '37a40d47d598104beeb38ab6cbab2537ba4fb9159c113f43329acc6547d2d2bf8717605503ad4af7432998ce77951c1a58ef4f1c472041ad127c747dc81bcf6a' # kernel source
+  '1d7a0d333803e9c1501fb505f59271bf7900211883b87839c4840f0f41a9252febcff6000bf6db91c67844226c03f5e9d8674440e46fb549591c672ff8a35dd0' # config
 )
 
 export KBUILD_BUILD_HOST=archlinux
