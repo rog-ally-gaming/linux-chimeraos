@@ -3,7 +3,7 @@
 # Contributor: Joaquín I. Aramendía (samsagax) <samsagaxg@gmail.com>
 
 pkgbase=linux-neroreflex
-pkgver=6.8.0.rc3
+pkgver=6.8.0.rc4
 pkgrel=1
 pkgdesc='Linux NeroReflex'
 url="https://github.com/NeroReflex/linux-chimeraos"
