@@ -4,7 +4,7 @@
 
 pkgbase=linux-neroreflex
 pkgver=6.8.0.rc4
-pkgrel=1
+pkgrel=2
 pkgdesc='Linux NeroReflex'
 url="https://github.com/NeroReflex/linux-chimeraos"
 arch=(x86_64)
@@ -36,7 +36,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.8-rc4-fix.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.8-rc4-bmi323.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
@@ -49,7 +49,7 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-  '37a40d47d598104beeb38ab6cbab2537ba4fb9159c113f43329acc6547d2d2bf8717605503ad4af7432998ce77951c1a58ef4f1c472041ad127c747dc81bcf6a' # kernel source
+  '2b8b2c6961bcd1ab78ada1f9a077a7b952efc028422de7f157a81a8646fdaad1cc52730bbb6c3399ae87ffb649a805ed3e7a4ccd6642ebc7e631d733eefee78d' # kernel source
   '1d7a0d333803e9c1501fb505f59271bf7900211883b87839c4840f0f41a9252febcff6000bf6db91c67844226c03f5e9d8674440e46fb549591c672ff8a35dd0' # config
 )
 
