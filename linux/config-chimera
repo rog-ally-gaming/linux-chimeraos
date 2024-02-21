@@ -2,3 +2,5 @@
 
 # Enable ACPI_call
 CONFIG_ACPI_CALL=m
+
+CONFIG_ZEN=y
