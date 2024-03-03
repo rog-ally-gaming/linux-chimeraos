@@ -3,7 +3,7 @@
 # Contributor: Joaquín I. Aramendía (samsagax) <samsagaxg@gmail.com>
 
 pkgbase=linux-neroreflex
-pkgver=6.1.78.nrflx2
+pkgver=6.1.80.nrflx1
 pkgrel=1
 pkgdesc='Linux NeroReflex'
 url="https://github.com/NeroReflex/linux"
@@ -36,7 +36,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.1.78-valve17-chos2-zen.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.1.80-valve17-chos2-zen.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
@@ -51,8 +51,8 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-  'cd9ea3efb9100974ddc1d67d53c57ce62c67e4945a162aafcae70c112c1e2e707e64c6a9c188fb231e81118453d6010a64bea09ccb74b2f5458249d6ecef3dc8' # kernel source
-  '861b14dc576901663a5ac7516f28e0513abcfbe9427b8d30368b73aa17d650d6b2478adc7a07df534455247a65f92d6bbc446c41b6e63d2a125ee2615645e684' # config
+  '21623d0a8085ec33c68843356a9bf67616f1b8c0a64abe3f35d6877cedd3e4d764697735f10537f0dbdc5d186d6b96838698edbc476ec18e6f96fb6cf0dcc34b' # kernel source
+  'ed8cf314c8b43cca10a872b810d129c8c8bf3f95bf154d7c5734c0b0752bcf8a43024c6ff5dfbaf2fab5b609a35e4b3fcb7fc86cd60ba44b7a6191a67f5351a9' # config
   'e8f83a30e5a8481f6b750885dc0bbdc86371dfb9deeb127be7ebefbd06978e828bdbf705fe6c49f94586ea82cb54d2d6ea6b633aac6748da48d7bda5c71be2b7' # config-chimera
   'db5d1c6a6837e965fe60e5714052ddd31559084a720e3b4bfdf5f237be57f01d8991f6a9aef2e19cf97c8d83a894a55f01e5bd14261495cd497654c2b9490358' # config-neptune
 )
@@ -64,6 +64,7 @@ export KBUILD_BUILD_TIMESTAMP="$(date -Ru${SOURCE_DATE_EPOCH:+d @$SOURCE_DATE_EP
 _make() {
   test -s version
   make \
+    KCFLAGS="-mtune=znver4" \
     LLVM=1 \
     KERNELRELEASE="$(<version)" "$@"
 }

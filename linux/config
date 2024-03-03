@@ -400,7 +400,7 @@ CONFIG_INTEL_TDX_GUEST=y
 # CONFIG_MZEN is not set
 # CONFIG_MZEN2 is not set
 # CONFIG_MZEN3 is not set
-CONFIG_MZEN4=y
+# CONFIG_MZEN4 is not set
 # CONFIG_MPSC is not set
 # CONFIG_MCORE2 is not set
 # CONFIG_MATOM is not set
@@ -427,7 +427,7 @@ CONFIG_MZEN4=y
 # CONFIG_MMETEORLAKE is not set
 # CONFIG_GENERIC_CPU is not set
 # CONFIG_GENERIC_CPU2 is not set
-# CONFIG_GENERIC_CPU3 is not set
+CONFIG_GENERIC_CPU3=y
 # CONFIG_GENERIC_CPU4 is not set
 # CONFIG_MNATIVE_INTEL is not set
 # CONFIG_MNATIVE_AMD is not set
