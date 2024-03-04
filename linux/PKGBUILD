@@ -4,7 +4,7 @@
 
 pkgbase=linux-neroreflex
 pkgver=6.1.80.nrflx3
-pkgrel=2
+pkgrel=3
 pkgdesc='Linux NeroReflex'
 url="https://github.com/NeroReflex/linux"
 arch=(x86_64)
