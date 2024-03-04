@@ -19,6 +19,8 @@ makedepends=(
   python
   tar
   xz
+  flex
+  bison
 
   # htmldocs
   #graphviz
