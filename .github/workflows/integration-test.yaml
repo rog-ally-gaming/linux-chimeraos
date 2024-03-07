@@ -34,6 +34,7 @@ jobs:
           sed -i -e 's/\[extra\]/\#\[extra\]/' /etc/pacman.conf
           sed -i -e 's/\#\[multilib\-testing\]/\[multilib\-testing\]/' /etc/pacman.conf
           sed -i -e 's/\[multilib\]/\#\[multilib\]/' /etc/pacman.conf
+          cat /etc/pacman.conf
           pacman -Syyu --noconfirm
       - name: Install dependencies
         run: |
