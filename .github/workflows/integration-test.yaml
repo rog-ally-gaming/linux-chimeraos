@@ -34,7 +34,6 @@ jobs:
           sed -i -e 's/\#Include = \/etc\/pacman\.d\/mirrorlist/Include = \/etc\/pacman\.d\/mirrorlist/' /etc/pacman.conf
           sed -i -e 's/\#\[multilib\-testing\]/\[multilib\-testing\]/' /etc/pacman.conf
           sed -i -e 's/\#Include = \/etc\/pacman\.d\/mirrorlist/Include = \/etc\/pacman\.d\/mirrorlist/' /etc/pacman.conf
-          cat /etc/pacman.conf
           pacman -Syyu --noconfirm
       - name: Install dependencies
         run: |

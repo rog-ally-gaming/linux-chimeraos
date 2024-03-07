@@ -47,12 +47,12 @@ jobs:
           mkdir -p /etc/gnupg && echo "auto-key-retrieve" >> /etc/gnupg/gpg.conf
       - name: Switch to testing
         run: |
-          sed -i -e 's/#[core-testing]/[core-testing]/' /etc/pacman.conf
-          sed -i -e 's/[core]/#[core]/' /etc/pacman.conf
-          sed -i -e 's/#[extra-testing]/[extra-testing]/' /etc/pacman.conf
-          sed -i -e 's/[extra]/#[extra]/' /etc/pacman.conf
-          sed -i -e 's/#[multilib-testing]/[multilib-testing]/' /etc/pacman.conf
-          sed -i -e 's/[multilib]/#[multilib]/' /etc/pacman.conf
+          sed -i -e 's/\#\[core\-testing\]/\[core\-testing\]/' /etc/pacman.conf
+          sed -i -e 's/\#Include = \/etc\/pacman\.d\/mirrorlist/Include = \/etc\/pacman\.d\/mirrorlist/' /etc/pacman.conf
+          sed -i -e 's/\#\[extra-testing\]/\[extra\-testing\]/' /etc/pacman.conf
+          sed -i -e 's/\#Include = \/etc\/pacman\.d\/mirrorlist/Include = \/etc\/pacman\.d\/mirrorlist/' /etc/pacman.conf
+          sed -i -e 's/\#\[multilib\-testing\]/\[multilib\-testing\]/' /etc/pacman.conf
+          sed -i -e 's/\#Include = \/etc\/pacman\.d\/mirrorlist/Include = \/etc\/pacman\.d\/mirrorlist/' /etc/pacman.conf
           pacman -Syyu --noconfirm
       - name: Install dependencies
         run: |
