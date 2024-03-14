@@ -42,8 +42,6 @@ _source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.6.21-rc.ta
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
-  config-chimera # our config that will be merged
-  config-neptune # config from valve
 )
 
 validpgpkeys=(
@@ -105,8 +103,7 @@ prepare() {
   echo "Setting config..."
   cp ../config .config
   _make olddefconfig
-  scripts/kconfig/merge_config.sh -m .config ../config-chimera
-  scripts/kconfig/merge_config.sh -m .config ../config-neptune
+  #scripts/kconfig/merge_config.sh -m .config ../config-chimera
   diff -u ../config .config || :
 
   echo "Prepared $pkgbase version $(<version)"
