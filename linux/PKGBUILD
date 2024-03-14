@@ -38,7 +38,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.6.21-rc.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.6-chos-rt.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
@@ -51,7 +51,7 @@ validpgpkeys=(
   C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
 )
 b2sums=(
-  '269332dd6f8b4d683164e5b0f2de88e75b68a00563bdeba9c0197c56ce65373679191925c098030e1516153bc1f4756e1d7907142ac7c0b9d60b736046dbf8bf' # kernel source
+  'SKIP' # kernel source
   '78ad2f5c99b96b43ca4510c3641a4ada5e53a819ba8ee8ff9428ac11466e5ca73c19b70f8473c48de6d2e96ea91844d0ec505ab27c4b26e28edb6a57bbef9d52' # config
 )
 
