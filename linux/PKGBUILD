@@ -3,8 +3,8 @@
 # Contributor: Joaquín I. Aramendía (samsagax) <samsagaxg@gmail.com>
 
 pkgbase=linux-neroreflex
-pkgver=6.6.21.nrflx1
-pkgrel=2
+pkgver=6.9.0.nrflx1
+pkgrel=1
 pkgdesc='Linux NeroReflex'
 url="https://github.com/NeroReflex/linux"
 arch=(x86_64)
@@ -44,12 +44,6 @@ source=(
   config  # the main kernel config file
 )
 
-validpgpkeys=(
-  ABAF11C65A2970B130ABE3C479BE3E4300411886  # Linus Torvalds
-  647F28654894E3BD457199BE38DBBDC86092693E  # Greg Kroah-Hartman
-  A2FF3A36AAA56654109064AB19802F8B0D70FC30  # Jan Alexander Steffens (heftig)
-  C7E7849466FE2358343588377258734B41C31549  # David Runge <dvzrv@archlinux.org>
-)
 b2sums=(
   'SKIP' # kernel source
   '78ad2f5c99b96b43ca4510c3641a4ada5e53a819ba8ee8ff9428ac11466e5ca73c19b70f8473c48de6d2e96ea91844d0ec505ab27c4b26e28edb6a57bbef9d52' # config
