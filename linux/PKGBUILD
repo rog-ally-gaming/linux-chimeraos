@@ -38,7 +38,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/v6.6-chos-rt.tar.gz"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/heads/bmi323-mount-matrix.zip"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
