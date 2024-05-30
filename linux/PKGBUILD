@@ -3,7 +3,7 @@
 # Contributor: Joaquín I. Aramendía (samsagax) <samsagaxg@gmail.com>
 
 pkgbase=linux-neroreflex
-pkgver=6.9.0.nrflx1
+pkgver=6.9.2.nrflx1
 pkgrel=1
 pkgdesc='Linux NeroReflex'
 url="https://github.com/NeroReflex/linux"
@@ -38,7 +38,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/heads/bmi323-mount-matrix.zip"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/bmi323-sleep-5.zip"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
@@ -46,7 +46,7 @@ source=(
 
 b2sums=(
   'SKIP' # kernel source
-  '78ad2f5c99b96b43ca4510c3641a4ada5e53a819ba8ee8ff9428ac11466e5ca73c19b70f8473c48de6d2e96ea91844d0ec505ab27c4b26e28edb6a57bbef9d52' # config
+  'SKIP' # config
 )
 
 export KBUILD_BUILD_HOST=archlinux
@@ -57,7 +57,6 @@ _make() {
   test -s version
   make \
     KCFLAGS="-mtune=znver4" \
-    LLVM=1 \
     KERNELRELEASE="$(<version)" "$@"
 }
 
@@ -72,16 +71,12 @@ prepare() {
   echo "-$pkgrel" > localversion.20-pkgrel
   sed -i "s/EXTRAVERSION =[[:space:]]\{0,\}/EXTRAVERSION = -${_srcpatch}/g" Makefile
   make \
-    LLVM=1 \
     defconfig
   make \
-    LLVM=1 \
     -s kernelrelease > version
   make \
-    LLVM=1 \
     defconfig
   make \
-    LLVM=1 \
     -s kernelrelease > version
   _make mrproper
 
