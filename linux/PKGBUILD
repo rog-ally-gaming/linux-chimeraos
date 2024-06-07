@@ -4,7 +4,7 @@
 
 pkgbase=linux-neroreflex
 pkgver=6.9.2.nrflx1
-pkgrel=1
+pkgrel=2
 pkgdesc='Linux NeroReflex'
 url="https://github.com/NeroReflex/linux"
 arch=(x86_64)
@@ -38,7 +38,7 @@ optdepends=(
 )
 options=('!strip')
 _srcname=kernel_src
-_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/bmi323-sleep-5.zip"
+_source_url="https://github.com/NeroReflex/linux/archive/refs/tags/bmi323-pollfunc-1.tar.gz"
 source=(
   $_source_url # the source for the kernel release
   config  # the main kernel config file
